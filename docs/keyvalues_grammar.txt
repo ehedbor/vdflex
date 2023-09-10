@@ -1,0 +1,17 @@
+File                ::= Declaration+
+Declaration         ::= Directive | KeyValue
+
+Directive           ::= IncludeDirective | BaseDirective
+IncludeDirective    ::= ('#include' | '"#include"') String
+BaseDirective       ::= ('#base' | '"#base"') String
+
+KeyValue            ::= Key Tag? Value
+Key                 ::= String
+Tag                 ::= '[' TagEntry ']' | '"[' TagEntry ']"'
+Value               ::= String | '{' Directive* '}'
+
+TagEntry            ::= /[^\]]*/
+String              ::= QuotedString | UnquotedString
+QuotedString        ::= /[^\]"(.*?[^\])"/
+UnquotedString      ::= /(\S+)/
+Comment             ::= /\/\/[^\n]*/
