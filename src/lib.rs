@@ -4,6 +4,8 @@
 pub mod error;
 #[cfg(all(feature = "serde", feature = "std"))]
 pub mod ser;
+#[cfg(feature = "serde")]
+pub mod de;
 
 #[cfg(feature = "serde")]
 pub use error::{Error, Result};
