@@ -8,7 +8,7 @@ pub enum Error {
     Io(io::Error),
     #[error("type `{0}` is not supported")]
     UnsupportedType(String),
-    #[error("a serde error occured")]
+    #[error("a serde error occurred")]
     Serde(String),
 }
 

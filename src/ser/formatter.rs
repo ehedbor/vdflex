@@ -1,5 +1,6 @@
 use std::io::{self, Write};
 
+/// Represents the possible escape sequences in Keyvalues.
 pub enum EscapeSequence {
     NewLine,
     Tab,
@@ -8,77 +9,79 @@ pub enum EscapeSequence {
 }
 
 /// This trait allows the user to customize Keyvalues formatting.
+///
+/// By default, there is only one implementation: [PrettyFormatter].
 pub trait Formatter {
     /// Called before writing an object. Writes a `{` to the specified writer.
     fn begin_object<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write;
+    where
+        W: ?Sized + Write;
 
     /// Called after every object. Writes a `}` to the specified writer.
     fn end_object<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write;
+    where
+        W: ?Sized + Write;
 
     /// Called before writing a key. Writes a `"` to the specified writer.
     fn begin_key<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write;
+    where
+        W: ?Sized + Write;
 
     /// Called after writing a key. Writes a `"` to the specified writer.
     fn end_key<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write;
+    where
+        W: ?Sized + Write;
 
     /// Called before writing a macro name.
     fn begin_macro_key<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write;
+    where
+        W: ?Sized + Write;
 
     /// Called after writing a macro name.
     fn end_macro_key<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write;
+    where
+        W: ?Sized + Write;
 
     /// Called before every string value. Writes a `"` to the specified writer.
     fn begin_string<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write;
+    where
+        W: ?Sized + Write;
 
     /// Called after every string value. Writes a `"` to the specified writer.
     fn end_string<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write;
+    where
+        W: ?Sized + Write;
 
     /// Called before writing a conditional. Writes a `[` to the specified writer.
     fn begin_conditional<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write;
+    where
+        W: ?Sized + Write;
 
     /// Called after writing a conditional. Writes a `]` to the specified writer.
     fn end_conditional<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write;
+    where
+        W: ?Sized + Write;
 
     /// Called before writing a line comment.
     fn begin_line_comment<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write,
+    where
+        W: ?Sized + Write,
     {
         writer.write_all(b"//")
     }
 
     /// Called after writing a line comment.
     fn end_line_comment<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write,
+    where
+        W: ?Sized + Write,
     {
         writer.write_all(b"\n")
     }
 
     /// Writes an escape sequence to the specified writer.
     fn write_escape_sequence<W>(&mut self, writer: &mut W, escape: EscapeSequence) -> io::Result<()>
-        where
-            W: ?Sized + Write,
+    where
+        W: ?Sized + Write,
     {
         match escape {
             EscapeSequence::NewLine => writer.write_all(b"\\n"),
@@ -90,13 +93,14 @@ pub trait Formatter {
 
     /// Writes a raw sequence of characters to the specified writer.
     fn write_fragment<W>(&mut self, writer: &mut W, fragment: &str) -> io::Result<()>
-        where
-            W: ?Sized + Write,
+    where
+        W: ?Sized + Write,
     {
         writer.write_all(fragment.as_bytes())
     }
 }
 
+/// Controls the formatting of curly brackets in Keyvalues objects.
 #[derive(Copy, Clone, Debug)]
 pub enum IndentStyle {
     /// Place `{` and `}` on new lines.
@@ -158,6 +162,7 @@ impl Default for FormatOpts {
     }
 }
 
+/// A [Formatter] that prints a human-readable version of the input.
 pub struct PrettyFormatter {
     opts: FormatOpts,
     indent_level: i32,
@@ -184,8 +189,8 @@ impl PrettyFormatter {
     }
 
     fn write_indent<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write,
+    where
+        W: ?Sized + Write,
     {
         for _ in 0..self.indent_level {
             writer.write_all(self.opts.indent.as_bytes())?;
@@ -205,8 +210,8 @@ impl Default for PrettyFormatter {
 
 impl Formatter for PrettyFormatter {
     fn begin_object<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write,
+    where
+        W: ?Sized + Write,
     {
         match self.opts.indent_style {
             IndentStyle::Allman => {
@@ -227,8 +232,8 @@ impl Formatter for PrettyFormatter {
     }
 
     fn end_object<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write,
+    where
+        W: ?Sized + Write,
     {
         self.pop_indent();
         self.write_indent(writer)?;
@@ -236,8 +241,8 @@ impl Formatter for PrettyFormatter {
     }
 
     fn begin_key<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write,
+    where
+        W: ?Sized + Write,
     {
         self.write_indent(writer)?;
         match self.opts.quote_keys {
@@ -246,8 +251,8 @@ impl Formatter for PrettyFormatter {
     }
 
     fn end_key<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write,
+    where
+        W: ?Sized + Write,
     {
         match self.opts.quote_keys {
             Quoting::Always => writer.write_all(b"\""),
@@ -255,8 +260,8 @@ impl Formatter for PrettyFormatter {
     }
 
     fn begin_macro_key<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write,
+    where
+        W: ?Sized + Write,
     {
         self.write_indent(writer)?;
         match self.opts.quote_macros {
@@ -265,8 +270,8 @@ impl Formatter for PrettyFormatter {
     }
 
     fn end_macro_key<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write,
+    where
+        W: ?Sized + Write,
     {
         match self.opts.quote_macros {
             Quoting::Always => writer.write_all(b"\""),
@@ -274,8 +279,8 @@ impl Formatter for PrettyFormatter {
     }
 
     fn begin_string<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write,
+    where
+        W: ?Sized + Write,
     {
         writer.write_all(b" ")?;
         match self.opts.quote_strings {
@@ -284,8 +289,8 @@ impl Formatter for PrettyFormatter {
     }
 
     fn end_string<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write,
+    where
+        W: ?Sized + Write,
     {
         match self.opts.quote_strings {
             Quoting::Always => writer.write_all(b"\"")?,
@@ -294,15 +299,15 @@ impl Formatter for PrettyFormatter {
     }
 
     fn begin_conditional<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write,
+    where
+        W: ?Sized + Write,
     {
         writer.write_all(b" [")
     }
 
     fn end_conditional<W>(&mut self, writer: &mut W) -> io::Result<()>
-        where
-            W: ?Sized + Write,
+    where
+        W: ?Sized + Write,
     {
         writer.write_all(b"]")
     }
@@ -315,9 +320,9 @@ mod tests {
     use std::io;
 
     fn write_simple_vmt<F, W>(f: &mut F, w: &mut W) -> io::Result<()>
-        where
-            F: Formatter,
-            W: ?Sized + Write,
+    where
+        F: Formatter,
+        W: ?Sized + Write,
     {
         f.begin_key(w)?;
         f.write_fragment(w, "LightmappedGeneric")?;
@@ -347,9 +352,9 @@ mod tests {
     }
 
     fn write_nested_vdf<F, W>(f: &mut F, w: &mut W) -> io::Result<()>
-        where
-            F: Formatter,
-            W: ?Sized + Write,
+    where
+        F: Formatter,
+        W: ?Sized + Write,
     {
         f.begin_line_comment(w)?;
         f.write_fragment(w, " Test comment")?;
@@ -421,12 +426,12 @@ mod tests {
         assert_eq!(
             String::from_utf8(buf).unwrap(),
             indoc! {r##"
-            "LightmappedGeneric"
-            {
-                "$basetexture" "coast\shingle_01"
-                "$surfaceprop" "gravel"
-            }
-        "##}
+                "LightmappedGeneric"
+                {
+                    "$basetexture" "coast\shingle_01"
+                    "$surfaceprop" "gravel"
+                }
+            "##}
         );
     }
 
@@ -445,11 +450,11 @@ mod tests {
         assert_eq!(
             String::from_utf8(buf).unwrap(),
             indoc! {r##"
-            "LightmappedGeneric" {
-              "$basetexture" "coast\shingle_01"
-              "$surfaceprop" "gravel"
-            }
-        "##}
+                "LightmappedGeneric" {
+                  "$basetexture" "coast\shingle_01"
+                  "$surfaceprop" "gravel"
+                }
+            "##}
         );
     }
 
@@ -468,17 +473,17 @@ mod tests {
         assert_eq!(
             String::from_utf8(buf).unwrap(),
             indoc! {r##"
-            // Test comment
-            "#base" "panelBase.res"
-            "Resource/specificPanel.res"
-            {
-                "Greeting" "Hello, \"Bob\"!"
-                "Nested"
+                // Test comment
+                "#base" "panelBase.res"
+                "Resource/specificPanel.res"
                 {
-                    "Object" "1"
+                    "Greeting" "Hello, \"Bob\"!"
+                    "Nested"
+                    {
+                        "Object" "1"
+                    }
                 }
-            }
-        "##}
+            "##}
         );
 
         Ok(())
@@ -499,15 +504,15 @@ mod tests {
         assert_eq!(
             String::from_utf8(buf).unwrap(),
             indoc! {r##"
-            // Test comment
-            "#base" "panelBase.res"
-            "Resource/specificPanel.res" {
-              "Greeting" "Hello, \"Bob\"!"
-              "Nested" {
-                "Object" "1"
-              }
-            }
-        "##}
+                // Test comment
+                "#base" "panelBase.res"
+                "Resource/specificPanel.res" {
+                  "Greeting" "Hello, \"Bob\"!"
+                  "Nested" {
+                    "Object" "1"
+                  }
+                }
+            "##}
         );
 
         Ok(())
