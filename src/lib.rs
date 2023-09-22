@@ -1,14 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "serde")]
+pub mod de;
+#[cfg(feature = "serde")]
 pub mod error;
 #[cfg(all(feature = "serde", feature = "std"))]
 pub mod ser;
-#[cfg(feature = "serde")]
-pub mod de;
 
 #[cfg(feature = "serde")]
 pub use error::{Error, Result};
+use serde::{Deserializer, Serializer};
 
 /// Represents a Keyvalues key.
 pub type Key = String;
@@ -49,5 +50,22 @@ impl Keyvalues {
     /// Creates a Keyvalues from a root object that may contain multiple keys.
     pub fn with_root(root: Object) -> Self {
         Self { root }
+    }
+}
+
+#[cfg(all(feature = "serde", feature = "std"))]
+impl serde::Serialize for Keyvalues {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        todo!()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Keyvalues {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error> where D: Deserializer<'de> {
+        todo!()
     }
 }
