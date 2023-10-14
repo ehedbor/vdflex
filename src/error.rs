@@ -8,6 +8,8 @@ pub enum Error {
     Io(io::Error),
     #[error("type `{0}` is not supported")]
     UnsupportedType(String),
+    #[error("tried to deserialize multiple root keys (try `from_str_flat`?)")]
+    MultipleRootKeys,
     #[error("a serde error occurred")]
     Serde(String),
 }

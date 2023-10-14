@@ -2,7 +2,14 @@ use crate::{Error, Result};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
-pub fn from_str<'a, T>(s: &'a str) -> Result<T>
+pub fn from_str<'a, T>(s: &'a str) -> Result<(T, String)>
+where
+    T: Deserialize<'a>,
+{
+    todo!()
+}
+
+pub fn from_str_flat<'a, T>(s: &'a str) -> Result<T>
 where
     T: Deserialize<'a>,
 {
@@ -10,7 +17,16 @@ where
 }
 
 #[cfg(feature = "std")]
-pub fn from_reader<R, T>(reader: R) -> Result<T>
+pub fn from_reader<R, T>(reader: R) -> Result<(T, String)>
+where
+    R: std::io::Read,
+    T: DeserializeOwned,
+{
+    todo!()
+}
+
+#[cfg(feature = "std")]
+pub fn from_reader_flat<R, T>(reader: R) -> Result<T>
 where
     R: std::io::Read,
     T: DeserializeOwned,
@@ -40,8 +56,8 @@ mod tests {
     "##};
 
     #[test]
-    fn test_de_simple_keyvalues() {
-        let vdf: Keyvalues = from_str(SIMPLE_KEYVALUES).unwrap();
+    fn de_simple_keyvalues() {
+        let vdf: Keyvalues = from_str_flat(SIMPLE_KEYVALUES).unwrap();
 
         assert_eq!(vdf.root.len(), 1);
         assert_eq!(vdf.root["foo"].len(), 1);
@@ -61,8 +77,111 @@ mod tests {
     }
 
     #[test]
-    fn test_de_simple_struct() {
-        let foo: Foo = from_str(SIMPLE_KEYVALUES).unwrap();
+    fn de_simple_struct() {
+        let (foo, key) = from_str::<Foo>(SIMPLE_KEYVALUES).unwrap();
         assert_eq!(foo.bar, "baz");
+        assert_eq!(key, "foo");
+    }
+
+    const ANIMALS: &'static str = indoc! {r##"
+        "Cats" {
+            "Cat" {
+                "Name" "Archie"
+                "Age" "2"
+            }
+            "Cat" {
+                "Name" "Boots"
+                "Age" "22"
+                "LikesCatnip" "0"
+            }
+        }
+        "Dogs" {
+            "Dog" {
+                "Name" "Teddy"
+                "Age" "6"
+                "IsGoodDog" "1"
+            }
+            "Dog" {
+                "Name" "Lucy"
+                "Age" "5"
+                "IsGoodDog" "1"
+            }
+        }
+    "##};
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    #[serde(rename = "CamelCase")]
+    struct Animals {
+        cats: Cats,
+        dogs: Dogs,
+    }
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Cats {
+        #[serde(rename = "Cat")]
+        items: Vec<Cat>,
+    }
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Dogs {
+        #[serde(rename = "Dog")]
+        items: Vec<Dog>,
+    }
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    #[serde(rename = "CamelCase")]
+    struct Cat {
+        name: String,
+        age: i32,
+        likes_catnip: Option<bool>,
+    }
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    #[serde(rename = "CamelCase")]
+    struct Dog {
+        name: String,
+        age: i32,
+        is_good_dog: bool,
+    }
+
+    #[test]
+    fn de_animals() {
+        let animals = from_str::<Animals>(ANIMALS);
+        assert!(matches!(animals, Err(Error::MultipleRootKeys)));
+
+        let animals = from_str_flat::<Animals>(ANIMALS).unwrap();
+        assert_eq!(
+            animals,
+            Animals {
+                cats: Cats {
+                    items: vec![
+                        Cat {
+                            name: String::from("Archie"),
+                            age: 2,
+                            likes_catnip: None
+                        },
+                        Cat {
+                            name: String::from("Boots"),
+                            age: 22,
+                            likes_catnip: Some(false),
+                        },
+                    ]
+                },
+                dogs: Dogs {
+                    items: vec![
+                        Dog {
+                            name: String::from("Teddy"),
+                            age: 6,
+                            is_good_dog: true
+                        },
+                        Dog {
+                            name: String::from("Lucy"),
+                            age: 5,
+                            is_good_dog: true,
+                        },
+                    ]
+                },
+            }
+        );
     }
 }
