@@ -2,14 +2,14 @@ use crate::{Error, Result};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
-pub fn from_str<'a, T>(s: &'a str) -> Result<(T, String)>
+pub fn from_str<'a, T>(_s: &'a str) -> Result<(String, T)>
 where
     T: Deserialize<'a>,
 {
     todo!()
 }
 
-pub fn from_str_flat<'a, T>(s: &'a str) -> Result<T>
+pub fn from_str_flat<'a, T>(_s: &'a str) -> Result<T>
 where
     T: Deserialize<'a>,
 {
@@ -17,7 +17,7 @@ where
 }
 
 #[cfg(feature = "std")]
-pub fn from_reader<R, T>(reader: R) -> Result<(T, String)>
+pub fn from_reader<R, T>(_reader: R) -> Result<(String, T)>
 where
     R: std::io::Read,
     T: DeserializeOwned,
@@ -26,7 +26,7 @@ where
 }
 
 #[cfg(feature = "std")]
-pub fn from_reader_flat<R, T>(reader: R) -> Result<T>
+pub fn from_reader_flat<R, T>(_reader: R) -> Result<T>
 where
     R: std::io::Read,
     T: DeserializeOwned,
@@ -78,9 +78,9 @@ mod tests {
 
     #[test]
     fn de_simple_struct() {
-        let (foo, key) = from_str::<Foo>(SIMPLE_KEYVALUES).unwrap();
-        assert_eq!(foo.bar, "baz");
+        let (key, foo) = from_str::<Foo>(SIMPLE_KEYVALUES).unwrap();
         assert_eq!(key, "foo");
+        assert_eq!(foo.bar, "baz");
     }
 
     const ANIMALS: &'static str = indoc! {r##"
