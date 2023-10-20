@@ -2,6 +2,12 @@ use crate::{Error, Result};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
+/// Deserialize KeyValues text representing a single key-value pair to the key and some type `T`.
+///
+/// # Errors
+///
+/// Deserialization can fail if the input is not valid KeyValues or does not match the structure
+/// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
 pub fn from_str<'a, T>(_s: &'a str) -> Result<(String, T)>
 where
     T: Deserialize<'a>,
@@ -9,6 +15,12 @@ where
     todo!()
 }
 
+/// Deserialize KeyValues text representing a flattened object to some type `T`.
+///
+/// # Errors
+///
+/// Deserialization can fail if the input is not valid KeyValues or does not match the structure
+/// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
 pub fn from_str_flat<'a, T>(_s: &'a str) -> Result<T>
 where
     T: Deserialize<'a>,
@@ -16,6 +28,13 @@ where
     todo!()
 }
 
+/// Deserialize KeyValues text representing a single key-value pair from a reader to the key and
+/// some type `T`.
+///
+/// # Errors
+///
+/// Deserialization can fail if the input is not valid KeyValues or does not match the structure
+/// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
 #[cfg(feature = "std")]
 pub fn from_reader<R, T>(_reader: R) -> Result<(String, T)>
 where
@@ -25,6 +44,12 @@ where
     todo!()
 }
 
+/// Deserialize KeyValues text representing a flattened object from a reader to some type `T`.
+///
+/// # Errors
+///
+/// Deserialization can fail if the input is not valid KeyValues or does not match the structure
+/// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
 #[cfg(feature = "std")]
 pub fn from_reader_flat<R, T>(_reader: R) -> Result<T>
 where

@@ -14,7 +14,8 @@ pub use serializer::Serializer;
 ///
 /// # Errors
 ///
-/// Serialization will fail if `T` cannot be represented as KeyValues.
+/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
+/// of `Serialize` decides to fail.
 #[inline]
 pub fn to_string<T>(key: &str, value: &T) -> Result<String>
 where
@@ -27,7 +28,8 @@ where
 ///
 /// # Errors
 ///
-/// Serialization will fail if `T` cannot be represented as KeyValues.
+/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
+/// of `Serialize` decides to fail.
 pub fn to_string_pretty<T>(key: &str, value: &T, opts: FormatOpts) -> Result<String>
 where
     T: ?Sized + Serialize,
@@ -42,7 +44,8 @@ where
 ///
 /// # Errors
 ///
-/// Serialization will fail if `T` cannot be represented as KeyValues.
+/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
+/// of `Serialize` decides to fail.
 #[inline]
 pub fn to_string_flat<T>(value: &T) -> Result<String>
 where
@@ -55,7 +58,8 @@ where
 ///
 /// # Errors
 ///
-/// Serialization will fail if `T` cannot be represented as KeyValues.
+/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
+/// of `Serialize` decides to fail.
 pub fn to_string_flat_pretty<T>(value: &T, opts: FormatOpts) -> Result<String>
 where
     T: ?Sized + Serialize,
@@ -70,7 +74,8 @@ where
 ///
 /// # Errors
 ///
-/// Serialization will fail if `T` cannot be represented as KeyValues.
+/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
+/// of `Serialize` decides to fail.
 #[inline]
 pub fn to_writer<W, T>(writer: W, key: &str, value: &T) -> Result<()>
 where
@@ -85,7 +90,8 @@ where
 ///
 /// # Errors
 ///
-/// Serialization will fail if `T` cannot be represented as KeyValues.
+/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
+/// of `Serialize` decides to fail.
 pub fn to_writer_pretty<W, T>(writer: W, key: &str, value: &T, opts: FormatOpts) -> Result<()>
 where
     W: Write,
@@ -101,7 +107,8 @@ where
 ///
 /// # Errors
 ///
-/// Serialization will fail if `T` cannot be represented as KeyValues.
+/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
+/// of `Serialize` decides to fail.
 #[inline]
 pub fn to_writer_flat<W, T>(writer: W, value: &T) -> Result<()>
 where
@@ -115,7 +122,8 @@ where
 ///
 /// # Errors
 ///
-/// Serialization will fail if `T` cannot be represented as KeyValues.
+/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
+/// of `Serialize` decides to fail.
 pub fn to_writer_flat_pretty<W, T>(writer: W, value: &T, opts: FormatOpts) -> Result<()>
 where
     W: Write,
