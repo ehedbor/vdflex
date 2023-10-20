@@ -11,6 +11,8 @@ pub enum EscapeSequence {
 /// This trait allows the user to customize Keyvalues formatting.
 ///
 /// By default, there is only one implementation: [PrettyFormatter].
+// TODO: Remove this trait and only use PrettyFormatter. 
+//       Realistically, nobody will ever need to use another formatter. 
 pub trait Formatter {
     /// Called before writing an object. Writes a `{` to the specified writer.
     fn begin_object<W>(&mut self, writer: &mut W) -> io::Result<()>

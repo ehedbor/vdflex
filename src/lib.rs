@@ -6,10 +6,10 @@ pub mod de;
 pub mod error;
 #[cfg(all(feature = "serde", feature = "std"))]
 pub mod ser;
-
+#[cfg(feature = "serde")]
+use serde::{Deserializer, Serializer};
 #[cfg(feature = "serde")]
 pub use error::{Error, Result};
-use serde::{Deserializer, Serializer};
 
 /// Represents a Keyvalues key.
 pub type Key = String;
@@ -55,7 +55,7 @@ impl Keyvalues {
 
 #[cfg(all(feature = "serde", feature = "std"))]
 impl serde::Serialize for Keyvalues {
-    fn serialize<S>(&self, _serializer: S) -> Result<()>
+    fn serialize<S>(&self, _serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -65,7 +65,7 @@ impl serde::Serialize for Keyvalues {
 
 #[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for Keyvalues {
-    fn deserialize<D>(_deserializer: D) -> Result<Self>
+    fn deserialize<D>(_deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
