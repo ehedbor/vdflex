@@ -9,9 +9,6 @@ pub use error::{Error, Result};
 
 use serde::{Deserializer, Serializer};
 
-/// Represents a Keyvalues key.
-pub type Key = String;
-
 /// Represents all possible Keyvalues values.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Value {
@@ -21,11 +18,11 @@ pub enum Value {
 
 /// Represents a Keyvalues object.
 #[cfg(feature = "preserve_order")]
-pub type Object = indexmap::IndexMap<Key, Vec<Value>>;
+pub type Object = indexmap::IndexMap<String, Vec<Value>>;
 
 /// Represents a Keyvalues object.
 #[cfg(not(feature = "preserve_order"))]
-pub type Object = std::collections::BTreeMap<Key, Vec<Value>>;
+pub type Object = std::collections::BTreeMap<String, Vec<Value>>;
 
 /// Represents a Keyvalues document.
 ///

@@ -2,7 +2,6 @@ pub mod formatter;
 pub mod serializer;
 
 use crate::Result;
-use serde::ser::SerializeMap;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::io::Write;
