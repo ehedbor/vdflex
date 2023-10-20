@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 indexmap = { version = "2.0", optional = true }
 indoc = "2.0"
-serde = { version ="1.0", optional = true }
+serde = { version ="1.0" }
 thiserror = "1.0"
 
 [dev-dependencies]
@@ -16,4 +16,4 @@ serde = { version = "1.0", features = ["derive"] }
 [features]
 default = ["std"]
 preserve_order = ["indexmap"]
-std = ["serde?/std", "indexmap?/std"]
+std = ["serde/std", "indexmap?/std"]
