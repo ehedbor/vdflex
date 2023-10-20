@@ -10,7 +10,7 @@ pub enum Error {
     UnsupportedType(String),
     #[error("tried to deserialize multiple root keys (try `from_str_flat`?)")]
     MultipleRootKeys,
-    #[error("a serde error occurred")]
+    #[error("a serde error occurred: {0}")]
     Serde(String),
 }
 
@@ -27,7 +27,10 @@ impl serde::ser::Error for Error {
 }
 
 impl serde::de::Error for Error {
-    fn custom<T>(msg: T) -> Self where T: Display {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: Display,
+    {
         Error::Serde(msg.to_string())
     }
 }

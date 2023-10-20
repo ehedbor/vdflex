@@ -2,9 +2,9 @@ pub mod formatter;
 pub mod serializer;
 
 use crate::{Result, Value};
+use serde::ser::SerializeMap;
 use serde::Serialize;
 use std::io::Write;
-use serde::ser::SerializeMap;
 
 pub use formatter::{EscapeSequence, FormatOpts, Formatter, IndentStyle, PrettyFormatter};
 pub use serializer::Serializer;
@@ -61,11 +61,7 @@ where
     serializer.serialize_value(value)
 }
 
-pub fn to_writer_custom<W, F, T>(
-    writer: W,
-    formatter: F,
-    value: &T,
-) -> Result<()>
+pub fn to_writer_custom<W, F, T>(writer: W, formatter: F, value: &T) -> Result<()>
 where
     W: Write,
     F: Formatter,

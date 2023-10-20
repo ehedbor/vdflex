@@ -55,7 +55,7 @@ impl Keyvalues {
 
 #[cfg(all(feature = "serde", feature = "std"))]
 impl serde::Serialize for Keyvalues {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    fn serialize<S>(&self, _serializer: S) -> Result<()>
     where
         S: Serializer,
     {
@@ -65,7 +65,10 @@ impl serde::Serialize for Keyvalues {
 
 #[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for Keyvalues {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error> where D: Deserializer<'de> {
+    fn deserialize<D>(_deserializer: D) -> Result<Self>
+    where
+        D: Deserializer<'de>,
+    {
         todo!()
     }
 }
