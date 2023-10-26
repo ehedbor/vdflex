@@ -1,18 +1,8 @@
 use std::io::{self, Write};
 
-/// Represents the possible escape sequences in Keyvalues.
-pub enum EscapeSequence {
-    NewLine,
-    Tab,
-    Backslash,
-    Quote,
-}
-
 /// This trait allows the user to customize Keyvalues formatting.
 ///
 /// By default, there is only one implementation: [PrettyFormatter].
-// TODO: Remove this trait and only use PrettyFormatter. 
-//       Realistically, nobody will ever need to use another formatter. 
 pub trait Formatter {
     /// Called before writing an object. Writes a `{` to the specified writer.
     fn begin_object<W>(&mut self, writer: &mut W) -> io::Result<()>
@@ -80,25 +70,34 @@ pub trait Formatter {
         writer.write_all(b"\n")
     }
 
-    /// Writes an escape sequence to the specified writer.
-    fn write_escape_sequence<W>(&mut self, writer: &mut W, escape: EscapeSequence) -> io::Result<()>
+    /// Writes a string that might be quoted and may need to be escaped.
+    ///
+    /// If you want to write an arbitrary string, see [Formatter::write_raw_str].
+    ///
+    /// # Safety
+    ///
+    /// This method may only be called between these methods:
+    ///
+    /// - [Formatter::begin_key] and [Formatter::end_key],
+    /// - [Formatter::begin_macro_key] and [Formatter::end_macro_key], and
+    /// - [Formatter::begin_string] and [Formatter::end_string].
+    ///
+    /// In addition, this method may only be called *once* between such a pair. This is due to a
+    /// limitation of [PrettyFormatter]. In order to support optionally writing a quote, the
+    /// formatter must know if a quote is necessary before writing any string fragments. However,
+    /// this is only known once the entire fragment sequence is written. It was problematic to store
+    /// references to the unwritten data without copying it, so the approach taken here is to
+    /// abandon the idea of writing multiple fragments at once.
+    fn write_quotable_str<W>(&mut self, writer: &mut W, s: &str) -> io::Result<()>
     where
-        W: ?Sized + Write,
-    {
-        match escape {
-            EscapeSequence::NewLine => writer.write_all(b"\\n"),
-            EscapeSequence::Tab => writer.write_all(b"\\t"),
-            EscapeSequence::Backslash => writer.write_all(b"\\\\"),
-            EscapeSequence::Quote => writer.write_all(b"\\\""),
-        }
-    }
+        W: ?Sized + Write;
 
-    /// Writes a raw sequence of characters to the specified writer.
-    fn write_fragment<W>(&mut self, writer: &mut W, fragment: &str) -> io::Result<()>
+    /// Writes an entire string directly.
+    fn write_raw_str<W>(&mut self, writer: &mut W, s: &str) -> io::Result<()>
     where
         W: ?Sized + Write,
     {
-        writer.write_all(fragment.as_bytes())
+        writer.write_all(s.as_bytes())
     }
 }
 
@@ -134,13 +133,12 @@ pub enum IndentStyle {
 pub enum Quoting {
     /// Always add quotes.
     Always,
-    // TODO: support optional quotes
-    // /// Only add quotes when required. This happens if any of the following is true:
-    // ///
-    // /// 1. The string contains whitespace.
-    // /// 2. The string contains one of the control characters (`{`, `}`, or `"`).
-    // /// 3. The string begins with '[' (which starts a conditional).
-    // WhenRequired,
+    /// Only add quotes when required. This happens if any of the following is true:
+    ///
+    /// 1. The string contains whitespace.
+    /// 2. The string contains one of the control characters (`{`, `}`, or `"`).
+    /// 3. The string begins with '[' (which normally starts a conditional).
+    WhenRequired,
 }
 
 #[derive(Clone, Debug)]
@@ -168,13 +166,19 @@ impl Default for FormatOpts {
 pub struct PrettyFormatter {
     opts: FormatOpts,
     indent_level: i32,
+    force_quotes: bool,
 }
 
 impl PrettyFormatter {
+    pub fn new() -> Self {
+        Self::with_opts(FormatOpts::default())
+    }
+
     pub fn with_opts(opts: FormatOpts) -> Self {
         Self {
             opts,
             indent_level: 0,
+            force_quotes: false,
         }
     }
 
@@ -199,14 +203,30 @@ impl PrettyFormatter {
         }
         Ok(())
     }
+
+    fn start_quotable(&mut self, quoting: Quoting) -> io::Result<()> {
+        self.force_quotes = match quoting {
+            Quoting::Always => true,
+            Quoting::WhenRequired => false,
+        };
+        Ok(())
+    }
+
+    fn end_quotable<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + Write,
+    {
+        if self.force_quotes {
+            writer.write_all(b"\"")?;
+        }
+        self.force_quotes = false;
+        Ok(())
+    }
 }
 
 impl Default for PrettyFormatter {
     fn default() -> Self {
-        Self {
-            opts: Default::default(),
-            indent_level: 0,
-        }
+        Self::new()
     }
 }
 
@@ -247,18 +267,14 @@ impl Formatter for PrettyFormatter {
         W: ?Sized + Write,
     {
         self.write_indent(writer)?;
-        match self.opts.quote_keys {
-            Quoting::Always => writer.write_all(b"\""),
-        }
+        self.start_quotable(self.opts.quote_keys)
     }
 
     fn end_key<W>(&mut self, writer: &mut W) -> io::Result<()>
     where
         W: ?Sized + Write,
     {
-        match self.opts.quote_keys {
-            Quoting::Always => writer.write_all(b"\""),
-        }
+        self.end_quotable(writer)
     }
 
     fn begin_macro_key<W>(&mut self, writer: &mut W) -> io::Result<()>
@@ -266,18 +282,14 @@ impl Formatter for PrettyFormatter {
         W: ?Sized + Write,
     {
         self.write_indent(writer)?;
-        match self.opts.quote_macros {
-            Quoting::Always => writer.write_all(b"\""),
-        }
+        self.start_quotable(self.opts.quote_macros)
     }
 
     fn end_macro_key<W>(&mut self, writer: &mut W) -> io::Result<()>
     where
         W: ?Sized + Write,
     {
-        match self.opts.quote_macros {
-            Quoting::Always => writer.write_all(b"\""),
-        }
+        self.end_quotable(writer)
     }
 
     fn begin_string<W>(&mut self, writer: &mut W) -> io::Result<()>
@@ -285,18 +297,14 @@ impl Formatter for PrettyFormatter {
         W: ?Sized + Write,
     {
         writer.write_all(b" ")?;
-        match self.opts.quote_strings {
-            Quoting::Always => writer.write_all(b"\""),
-        }
+        self.start_quotable(self.opts.quote_strings)
     }
 
     fn end_string<W>(&mut self, writer: &mut W) -> io::Result<()>
     where
         W: ?Sized + Write,
     {
-        match self.opts.quote_strings {
-            Quoting::Always => writer.write_all(b"\"")?,
-        }
+        self.end_quotable(writer)?;
         writer.write_all(b"\n")
     }
 
@@ -313,6 +321,52 @@ impl Formatter for PrettyFormatter {
     {
         writer.write_all(b"]")
     }
+
+    fn write_quotable_str<W>(&mut self, writer: &mut W, s: &str) -> io::Result<()>
+    where
+        W: ?Sized + Write,
+    {
+        // Write a quote if necessary and remember for later.
+        let write_quote = if self.force_quotes {
+            true
+        } else {
+            s.starts_with('[')
+                || s.contains(|c: char| c == '{' || c == '}' || c == '"' || c.is_whitespace())
+        };
+
+        if write_quote {
+            self.force_quotes = true;
+            writer.write_all(b"\"")?;
+        }
+
+        // Write all fragment-escape pairs.
+        let mut start = 0;
+        for (current, unescaped) in s.match_indices(&['\t', '\n', '\\', '\"']) {
+            // Write a raw string fragment if one was present.
+            if start != current {
+                writer.write_all(s[start..current].as_bytes())?;
+            }
+
+            // Now write the escape character.
+            let escaped = match unescaped.chars().next().unwrap() {
+                '\t' => "\\t",
+                '\n' => "\\n",
+                '\\' => "\\\\",
+                '\"' => "\\\"",
+                _ => unreachable!(),
+            };
+            writer.write_all(escaped.as_bytes())?;
+
+            start = current + unescaped.len();
+        }
+
+        // If there was a trailing fragment, write that too.
+        if start < s.len() {
+            writer.write_all(s[start..].as_bytes())?;
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -327,25 +381,25 @@ mod tests {
         W: ?Sized + Write,
     {
         f.begin_key(w)?;
-        f.write_fragment(w, "LightmappedGeneric")?;
+        f.write_quotable_str(w, "LightmappedGeneric")?;
         f.end_key(w)?;
 
         f.begin_object(w)?;
         {
             f.begin_key(w)?;
-            f.write_fragment(w, "$basetexture")?;
+            f.write_quotable_str(w, "$basetexture")?;
             f.end_key(w)?;
 
             f.begin_string(w)?;
-            f.write_fragment(w, "coast\\shingle_01")?;
+            f.write_quotable_str(w, "coast\\shingle_01")?;
             f.end_string(w)?;
 
             f.begin_key(w)?;
-            f.write_fragment(w, "$surfaceprop")?;
+            f.write_quotable_str(w, "$surfaceprop")?;
             f.end_key(w)?;
 
             f.begin_string(w)?;
-            f.write_fragment(w, "gravel")?;
+            f.write_quotable_str(w, "gravel")?;
             f.end_string(w)?;
         }
         f.end_object(w)?;
@@ -359,50 +413,46 @@ mod tests {
         W: ?Sized + Write,
     {
         f.begin_line_comment(w)?;
-        f.write_fragment(w, " Test comment")?;
+        f.write_raw_str(w, " Test comment")?;
         f.end_line_comment(w)?;
 
         f.begin_macro_key(w)?;
-        f.write_fragment(w, "#base")?;
+        f.write_quotable_str(w, "#base")?;
         f.end_macro_key(w)?;
 
         f.begin_string(w)?;
-        f.write_fragment(w, "panelBase.res")?;
+        f.write_quotable_str(w, "panelBase.res")?;
         f.end_string(w)?;
 
         f.begin_key(w)?;
-        f.write_fragment(w, "Resource/specificPanel.res")?;
+        f.write_quotable_str(w, "Resource/specificPanel.res")?;
         f.end_key(w)?;
 
         f.begin_object(w)?;
         {
             {
                 f.begin_key(w)?;
-                f.write_fragment(w, "Greeting")?;
+                f.write_quotable_str(w, "Greeting")?;
                 f.end_key(w)?;
 
                 f.begin_string(w)?;
-                f.write_fragment(w, "Hello, ")?;
-                f.write_escape_sequence(w, EscapeSequence::Quote)?;
-                f.write_fragment(w, "Bob")?;
-                f.write_escape_sequence(w, EscapeSequence::Quote)?;
-                f.write_fragment(w, "!")?;
+                f.write_quotable_str(w, "Hello, \"Bob\"!")?;
                 f.end_string(w)?;
             }
 
             {
                 f.begin_key(w)?;
-                f.write_fragment(w, "Nested")?;
+                f.write_quotable_str(w, "Nested")?;
                 f.end_key(w)?;
 
                 f.begin_object(w)?;
                 {
                     f.begin_key(w)?;
-                    f.write_fragment(w, "Object")?;
+                    f.write_quotable_str(w, "Object")?;
                     f.end_key(w)?;
 
                     f.begin_string(w)?;
-                    f.write_fragment(w, "1")?;
+                    f.write_quotable_str(w, "1")?;
                     f.end_string(w)?;
                 }
                 f.end_object(w)?;
@@ -420,7 +470,7 @@ mod tests {
             indent_style: IndentStyle::Allman,
             quote_keys: Quoting::Always,
             quote_strings: Quoting::Always,
-            quote_macros: Quoting::Always,
+            ..FormatOpts::default()
         });
         let mut buf = Vec::new();
         write_simple_vmt(&mut f, &mut buf).unwrap();
@@ -430,10 +480,58 @@ mod tests {
             indoc! {r##"
                 "LightmappedGeneric"
                 {
-                    "$basetexture" "coast\shingle_01"
+                    "$basetexture" "coast\\shingle_01"
                     "$surfaceprop" "gravel"
                 }
             "##}
+        );
+    }
+
+    #[test]
+    fn simple_quote_keys() {
+        let mut f = PrettyFormatter::with_opts(FormatOpts {
+            indent: "    ".to_string(),
+            indent_style: IndentStyle::Allman,
+            quote_keys: Quoting::Always,
+            quote_strings: Quoting::WhenRequired,
+            ..FormatOpts::default()
+        });
+        let mut buf = Vec::new();
+        write_simple_vmt(&mut f, &mut buf).unwrap();
+
+        assert_eq!(
+            String::from_utf8(buf).unwrap(),
+            indoc! {r#"
+                "LightmappedGeneric"
+                {
+                    "$basetexture" coast\\shingle_01
+                    "$surfaceprop" gravel
+                }
+            "#}
+        );
+    }
+
+    #[test]
+    fn simple_quote_values() {
+        let mut f = PrettyFormatter::with_opts(FormatOpts {
+            indent: "    ".to_string(),
+            indent_style: IndentStyle::Allman,
+            quote_keys: Quoting::WhenRequired,
+            quote_strings: Quoting::Always,
+            ..FormatOpts::default()
+        });
+        let mut buf = Vec::new();
+        write_simple_vmt(&mut f, &mut buf).unwrap();
+
+        assert_eq!(
+            String::from_utf8(buf).unwrap(),
+            indoc! {r#"
+                LightmappedGeneric
+                {
+                    $basetexture "coast\\shingle_01"
+                    $surfaceprop "gravel"
+                }
+            "#}
         );
     }
 
@@ -444,19 +542,19 @@ mod tests {
             indent_style: IndentStyle::KAndR,
             quote_keys: Quoting::Always,
             quote_strings: Quoting::Always,
-            quote_macros: Quoting::Always,
+            ..FormatOpts::default()
         });
         let mut buf = Vec::new();
         write_simple_vmt(&mut f, &mut buf).unwrap();
 
         assert_eq!(
             String::from_utf8(buf).unwrap(),
-            indoc! {r##"
+            indoc! {r#"
                 "LightmappedGeneric" {
-                  "$basetexture" "coast\shingle_01"
+                  "$basetexture" "coast\\shingle_01"
                   "$surfaceprop" "gravel"
                 }
-            "##}
+            "#}
         );
     }
 
@@ -483,6 +581,37 @@ mod tests {
                     "Nested"
                     {
                         "Object" "1"
+                    }
+                }
+            "##}
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn nested_quote_keys() -> io::Result<()> {
+        let mut f = PrettyFormatter::with_opts(FormatOpts {
+            indent: "    ".to_string(),
+            indent_style: IndentStyle::Allman,
+            quote_keys: Quoting::Always,
+            quote_strings: Quoting::WhenRequired,
+            quote_macros: Quoting::WhenRequired,
+        });
+        let mut buf = Vec::new();
+        write_nested_vdf(&mut f, &mut buf)?;
+
+        assert_eq!(
+            String::from_utf8(buf).unwrap(),
+            indoc! {r##"
+                // Test comment
+                #base panelBase.res
+                "Resource/specificPanel.res"
+                {
+                    "Greeting" "Hello, \"Bob\"!"
+                    "Nested"
+                    {
+                        "Object" 1
                     }
                 }
             "##}

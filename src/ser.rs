@@ -6,7 +6,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::io::Write;
 
-pub use formatter::{EscapeSequence, FormatOpts, Formatter, IndentStyle, PrettyFormatter};
+pub use formatter::{FormatOpts, Formatter, IndentStyle, PrettyFormatter};
 pub use serializer::Serializer;
 
 /// Serialize the given value as KeyValues text.
@@ -206,7 +206,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Keyvalues, Object, Value};
     use indoc::indoc;
 
     #[derive(Serialize)]

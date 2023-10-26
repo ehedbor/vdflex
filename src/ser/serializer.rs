@@ -1,15 +1,15 @@
 use super::formatter::{FormatOpts, Formatter, PrettyFormatter};
-use crate::ser::formatter::EscapeSequence;
 use crate::{Error, Result};
 use serde::Serialize;
 use std::io::Write;
+
 pub struct Serializer<W, F>
 where
     W: Write,
     F: Formatter,
 {
     writer: W,
-    formatter: F,
+    formatter: F
 }
 
 impl<W> Serializer<W, PrettyFormatter>
@@ -18,7 +18,7 @@ where
 {
     /// Creates a new Keyvalues serializer using an appropriate formatter.
     pub fn new(writer: W) -> Self {
-        Self::custom(writer, PrettyFormatter::default())
+        Self::custom(writer, PrettyFormatter::new())
     }
 
     /// Creates a new Keyvalues serializer using a `PrettyFormatter` with the given options.
@@ -112,44 +112,9 @@ where
     fn serialize_str(mut self, v: &str) -> Result<Self::Ok> {
         self.formatter
             .begin_string(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-
-        let mut start = 0;
-        for (idx, to_escape) in v.match_indices(&['\t', '\n', '\\', '\"']) {
-            // Write a raw string fragment if one was present.
-            if start != idx {
-                self.formatter
-                    .write_fragment(&mut self.writer, &v[start..idx])
-                    .map_err(|e| Error::Io(e))?;
-            }
-
-            // Now write the escape character.
-            let escape = match to_escape.chars().next().unwrap() {
-                '\t' => EscapeSequence::Tab,
-                '\n' => EscapeSequence::NewLine,
-                '\\' => EscapeSequence::Backslash,
-                '\"' => EscapeSequence::Quote,
-                c => panic!("unexpected escape character {c:?}"),
-            };
-            self.formatter
-                .write_escape_sequence(&mut self.writer, escape)
-                .map_err(|e| Error::Io(e))?;
-
-            start = idx + to_escape.len();
-        }
-
-        // If there was a trailing fragment, write that too.
-        if start < v.len() {
-            self.formatter
-                .write_fragment(&mut self.writer, &v[start..])
-                .map_err(|e| Error::Io(e))?;
-        }
-
-        self.formatter
-            .end_string(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-
-        Ok(())
+            .and_then(|_| self.formatter.write_quotable_str(&mut self.writer, v))
+            .and_then(|_| self.formatter.end_string(&mut self.writer))
+            .map_err(|e| Error::Io(e))
     }
 
     fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok> {
