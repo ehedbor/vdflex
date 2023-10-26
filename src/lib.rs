@@ -7,8 +7,6 @@ pub mod ser;
 
 pub use error::{Error, Result};
 
-use serde::{Deserializer, Serializer};
-
 /// Represents all possible Keyvalues values.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Value {
@@ -23,6 +21,17 @@ pub type Object = indexmap::IndexMap<String, Vec<Value>>;
 /// Represents a Keyvalues object.
 #[cfg(not(feature = "preserve_order"))]
 pub type Object = std::collections::BTreeMap<String, Vec<Value>>;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RootKind {
+    Nested(String),
+    Flattened,
+}
+
+/// Indicates that a type can be represented as a KeyValues document.
+pub trait KeyvaluesRoot {
+    fn kind() -> RootKind;
+}
 
 /// Represents a Keyvalues document.
 ///
@@ -48,11 +57,17 @@ impl Keyvalues {
     }
 }
 
+impl KeyvaluesRoot for Keyvalues {
+    fn kind() -> RootKind {
+        RootKind::Flattened
+    }
+}
+
 #[cfg(feature = "std")]
 impl serde::Serialize for Keyvalues {
     fn serialize<S>(&self, _serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
-        S: Serializer,
+        S: serde::Serializer,
     {
         todo!()
     }
@@ -61,7 +76,7 @@ impl serde::Serialize for Keyvalues {
 impl<'de> serde::Deserialize<'de> for Keyvalues {
     fn deserialize<D>(_deserializer: D) -> std::result::Result<Self, D::Error>
     where
-        D: Deserializer<'de>,
+        D: serde::Deserializer<'de>,
     {
         todo!()
     }

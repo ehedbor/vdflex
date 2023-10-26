@@ -2,7 +2,9 @@ use std::fmt::Display;
 use std::io;
 use thiserror::Error;
 
+// TODO: this struct is incomplete and subject to change
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum Error {
     #[error("unexpected io error")]
     Io(io::Error),
@@ -10,6 +12,8 @@ pub enum Error {
     UnsupportedType(String),
     #[error("tried to deserialize multiple root keys (try `from_str_flat`?)")]
     MultipleRootKeys,
+    #[error("unsupported document key `{0}`")]
+    UnsupportedKey(String),
     #[error("a serde error occurred: {0}")]
     Serde(String),
 }

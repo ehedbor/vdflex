@@ -1,6 +1,29 @@
-use crate::{Error, Result};
+use crate::{Error, KeyvaluesRoot, Result, RootKind};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
+
+/// Deserialize KeyValues text to some type `T`.
+///
+/// # Errors
+///
+/// Deserialization can fail if the input is not valid KeyValues or does not match the structure
+/// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
+pub fn from_str<'a, T>(s: &'a str) -> Result<T>
+where
+    T: Deserialize<'a> + KeyvaluesRoot,
+{
+    match T::kind() {
+        RootKind::Nested(root_key) => {
+            let (key, value) = from_str_nested(s)?;
+            if key != root_key {
+                Err(Error::UnsupportedKey(key))
+            } else {
+                Ok(value)
+            }
+        }
+        RootKind::Flattened => from_str_flat(s),
+    }
+}
 
 /// Deserialize KeyValues text representing a single key-value pair to the key and some type `T`.
 ///
@@ -8,7 +31,7 @@ use serde::Deserialize;
 ///
 /// Deserialization can fail if the input is not valid KeyValues or does not match the structure
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
-pub fn from_str<'a, T>(_s: &'a str) -> Result<(String, T)>
+pub fn from_str_nested<'a, T>(_s: &'a str) -> Result<(String, T)>
 where
     T: Deserialize<'a>,
 {
@@ -28,6 +51,31 @@ where
     todo!()
 }
 
+/// Deserialize KeyValues text from a reader to some type `T`.
+///
+/// # Errors
+///
+/// Deserialization can fail if the input is not valid KeyValues or does not match the structure
+/// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
+#[cfg(feature = "std")]
+pub fn from_reader<R, T>(reader: R) -> Result<(String, T)>
+where
+    R: std::io::Read,
+    T: DeserializeOwned + KeyvaluesRoot,
+{
+    match T::kind() {
+        RootKind::Nested(root_key) => {
+            let (key, value) = from_reader_nested(reader)?;
+            if key != root_key {
+                Err(Error::UnsupportedKey(key))
+            } else {
+                Ok(value)
+            }
+        }
+        RootKind::Flattened => from_reader_flat(reader),
+    }
+}
+
 /// Deserialize KeyValues text representing a single key-value pair from a reader to the key and
 /// some type `T`.
 ///
@@ -36,7 +84,7 @@ where
 /// Deserialization can fail if the input is not valid KeyValues or does not match the structure
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
 #[cfg(feature = "std")]
-pub fn from_reader<R, T>(_reader: R) -> Result<(String, T)>
+pub fn from_reader_nested<R, T>(_reader: R) -> Result<(String, T)>
 where
     R: std::io::Read,
     T: DeserializeOwned,
@@ -103,7 +151,7 @@ mod tests {
 
     #[test]
     fn de_simple_struct() {
-        let (key, foo) = from_str::<Foo>(SIMPLE_KEYVALUES).unwrap();
+        let (key, foo) = from_str_nested::<Foo>(SIMPLE_KEYVALUES).unwrap();
         assert_eq!(key, "foo");
         assert_eq!(foo.bar, "baz");
     }
@@ -141,6 +189,12 @@ mod tests {
         dogs: Dogs,
     }
 
+    impl KeyvaluesRoot for Animals {
+        fn kind() -> RootKind {
+            RootKind::Flattened
+        }
+    }
+
     #[derive(Debug, Deserialize, PartialEq)]
     struct Cats {
         #[serde(rename = "Cat")]
@@ -170,11 +224,13 @@ mod tests {
     }
 
     #[test]
-    fn de_animals() {
-        let animals = from_str::<Animals>(ANIMALS);
+    fn de_animals() -> Result<()> {
+        let animals = from_str_nested::<Animals>(ANIMALS);
         assert!(matches!(animals, Err(Error::MultipleRootKeys)));
 
-        let animals = from_str_flat::<Animals>(ANIMALS).unwrap();
+        let animals: Animals = from_str(ANIMALS)?;
+        let animals2: Animals = from_str_flat(ANIMALS)?;
+        assert_eq!(animals, animals2);
         assert_eq!(
             animals,
             Animals {
@@ -208,5 +264,7 @@ mod tests {
                 },
             }
         );
+
+        Ok(())
     }
 }

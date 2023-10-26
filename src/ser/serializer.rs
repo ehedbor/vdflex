@@ -3,7 +3,6 @@ use crate::ser::formatter::EscapeSequence;
 use crate::{Error, Result};
 use serde::Serialize;
 use std::io::Write;
-
 pub struct Serializer<W, F>
 where
     W: Write,
