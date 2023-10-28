@@ -9,6 +9,28 @@ use std::io::Write;
 pub use formatter::{FormatOpts, Formatter, IndentStyle, PrettyFormatter};
 pub use serializer::Serializer;
 
+macro_rules! to_string_impl {
+    ($to_writer:ident, $($arg:expr),* ) => {{
+        let mut writer = Vec::new();
+        $to_writer(&mut writer, $($arg),*)?;
+        // Safety: given valid utf-8 as input, the writer will never produce invalid utf-8
+        unsafe { Ok(String::from_utf8_unchecked(writer)) }
+    }};
+}
+
+macro_rules! to_writer_impl {
+    (@nested $serializer:expr, ($key:expr, $value:expr)) => {{
+        let serializer = $serializer;
+        let mut root = HashMap::new();
+        root.insert($key, $value);
+        root.serialize(serializer)
+    }};
+    (@flat $serializer:expr, $value:expr) => {{
+        let serializer = $serializer;
+        $value.serialize(serializer)
+    }};
+}
+
 /// Serialize the given value as KeyValues text.
 ///
 /// # Errors
@@ -41,18 +63,34 @@ where
     }
 }
 
+/// Serialize the given value as KeyValues text with a custom formatter.
+///
+/// # Errors
+///
+/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
+/// of `Serialize` decides to fail.
+pub fn to_string_custom<T, F>(value: &T, formatter: F) -> Result<String>
+where
+    T: ?Sized + Serialize + KeyvaluesRoot,
+    F: Formatter,
+{
+    match T::kind() {
+        RootKind::Nested(ref root_key) => to_string_nested_custom(root_key, value, formatter),
+        RootKind::Flattened => to_string_flat_custom(value, formatter),
+    }
+}
+
 /// Serialize the given value as KeyValues text using a specified root key.
 ///
 /// # Errors
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-#[inline]
 pub fn to_string_nested<T>(key: &str, value: &T) -> Result<String>
 where
     T: ?Sized + Serialize,
 {
-    to_string_nested_pretty(key, value, FormatOpts::default())
+    to_string_impl!(to_writer_nested, key, value)
 }
 
 /// Serialize the given value as pretty-printed KeyValues text using a specified root key.
@@ -65,10 +103,21 @@ pub fn to_string_nested_pretty<T>(key: &str, value: &T, opts: FormatOpts) -> Res
 where
     T: ?Sized + Serialize,
 {
-    let mut writer = Vec::new();
-    to_writer_nested_pretty(&mut writer, key, value, opts)?;
-    // Safety: given valid utf-8 as input, the writer will never produce invalid utf-8
-    unsafe { Ok(String::from_utf8_unchecked(writer)) }
+    to_string_impl!(to_writer_nested_pretty, key, value, opts)
+}
+
+/// Serialize the given value as KeyValues text with a custom formatter using a specified root key.
+///
+/// # Errors
+///
+/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
+/// of `Serialize` decides to fail.
+pub fn to_string_nested_custom<T, F>(key: &str, value: &T, formatter: F) -> Result<String>
+where
+    T: ?Sized + Serialize,
+    F: Formatter,
+{
+    to_string_impl!(to_writer_nested_custom, key, value, formatter)
 }
 
 /// Serialize the given value as flattened KeyValues text.
@@ -77,12 +126,11 @@ where
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-#[inline]
 pub fn to_string_flat<T>(value: &T) -> Result<String>
 where
     T: ?Sized + Serialize,
 {
-    to_string_flat_pretty(value, FormatOpts::default())
+    to_string_impl!(to_writer_flat, value)
 }
 
 /// Serialize the given value as flattened, pretty-printed KeyValues text.
@@ -95,10 +143,21 @@ pub fn to_string_flat_pretty<T>(value: &T, opts: FormatOpts) -> Result<String>
 where
     T: ?Sized + Serialize,
 {
-    let mut writer = Vec::new();
-    to_writer_flat_pretty(&mut writer, value, opts)?;
-    // Safety: given valid utf-8 as input, the writer will never produce invalid utf-8
-    unsafe { Ok(String::from_utf8_unchecked(writer)) }
+    to_string_impl!(to_writer_flat_pretty, value, opts)
+}
+
+/// Serialize the given value as flattened KeyValues text with a custom formatter.
+///
+/// # Errors
+///
+/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
+/// of `Serialize` decides to fail.
+pub fn to_string_flat_custom<T, F>(value: &T, formatter: F) -> Result<String>
+where
+    T: ?Sized + Serialize,
+    F: Formatter,
+{
+    to_string_impl!(to_writer_flat_custom, value, formatter)
 }
 
 /// Serialize the given value into the specified writer.
@@ -135,19 +194,38 @@ where
     }
 }
 
+/// Serialize the given value as KeyValues with a custom formatter into the specified writer.
+///
+/// # Errors
+///
+/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
+/// of `Serialize` decides to fail.
+pub fn to_writer_custom<W, T, F>(writer: W, value: &T, formatter: F) -> Result<()>
+where
+    W: Write,
+    T: ?Sized + Serialize + KeyvaluesRoot,
+    F: Formatter,
+{
+    match T::kind() {
+        RootKind::Nested(ref root_key) => {
+            to_writer_nested_custom(writer, root_key, value, formatter)
+        }
+        RootKind::Flattened => to_writer_flat_custom(writer, value, formatter),
+    }
+}
+
 /// Serialize the given value into the specified writer with a specified root key.
 ///
 /// # Errors
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-#[inline]
 pub fn to_writer_nested<W, T>(writer: W, key: &str, value: &T) -> Result<()>
 where
     W: Write,
     T: ?Sized + Serialize,
 {
-    to_writer_nested_pretty(writer, key, value, FormatOpts::default())
+    to_writer_impl!(@nested Serializer::new(writer), (key, value))
 }
 
 /// Serialize the given value as pretty-printed KeyValues into the specified writer with a
@@ -167,10 +245,23 @@ where
     W: Write,
     T: ?Sized + Serialize,
 {
-    let serializer = Serializer::pretty(writer, opts);
-    let mut root = HashMap::new();
-    root.insert(key, value);
-    root.serialize(serializer)
+    to_writer_impl!(@nested Serializer::pretty(writer, opts), (key, value))
+}
+
+/// Serialize the given value as KeyValues with a custom formatter into the specified writer using a
+/// specified root key.
+///
+/// # Errors
+///
+/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
+/// of `Serialize` decides to fail.
+pub fn to_writer_nested_custom<W, T, F>(writer: W, key: &str, value: &T, formatter: F) -> Result<()>
+where
+    W: Write,
+    T: ?Sized + Serialize,
+    F: Formatter,
+{
+    to_writer_impl!(@nested Serializer::custom(writer, formatter), (key, value))
 }
 
 /// Serialize the given value as flattened KeyValues into the specified writer.
@@ -185,7 +276,7 @@ where
     W: Write,
     T: ?Sized + Serialize,
 {
-    to_writer_flat_pretty(writer, value, FormatOpts::default())
+    to_writer_impl!(@flat Serializer::new(writer), value)
 }
 
 /// Serialize the given value as flattened, pretty-printed KeyValues into the specified writer.
@@ -199,13 +290,29 @@ where
     W: Write,
     T: ?Sized + Serialize,
 {
-    let serializer = Serializer::pretty(writer, opts);
-    value.serialize(serializer)
+    to_writer_impl!(@flat Serializer::pretty(writer, opts), value)
+}
+
+/// Serialize the given value as flattened KeyValues with a custom formatter into the specified
+/// writer.
+///
+/// # Errors
+///
+/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
+/// of `Serialize` decides to fail.
+pub fn to_writer_flat_custom<W, T, F>(writer: W, value: &T, formatter: F) -> Result<()>
+where
+    W: Write,
+    T: ?Sized + Serialize,
+    F: Formatter,
+{
+    to_writer_impl!(@flat Serializer::custom(writer, formatter), value)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Keyvalues, KeyvaluesRoot, Object, RootKind, Value};
     use indoc::indoc;
 
     #[derive(Serialize)]

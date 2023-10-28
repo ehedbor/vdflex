@@ -3,7 +3,7 @@ use crate::{Error, Result};
 use serde::Serialize;
 use std::io::Write;
 
-pub struct Serializer<W, F>
+pub struct Serializer<W, F = PrettyFormatter>
 where
     W: Write,
     F: Formatter,
