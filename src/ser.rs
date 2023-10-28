@@ -1,7 +1,7 @@
 mod formatter;
 mod serializer;
 
-use crate::{KeyvaluesRoot, Result, RootKind};
+use crate::{KeyValuesRoot, Result, RootKind};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::io::Write;
@@ -39,7 +39,7 @@ macro_rules! to_writer_impl {
 /// of `Serialize` decides to fail.
 pub fn to_string<T>(value: &T) -> Result<String>
 where
-    T: ?Sized + Serialize + KeyvaluesRoot,
+    T: ?Sized + Serialize + KeyValuesRoot,
 {
     match T::kind() {
         RootKind::Nested(ref root_key) => to_string_nested(root_key, value),
@@ -55,7 +55,7 @@ where
 /// of `Serialize` decides to fail.
 pub fn to_string_pretty<T>(value: &T, opts: FormatOpts) -> Result<String>
 where
-    T: ?Sized + Serialize + KeyvaluesRoot,
+    T: ?Sized + Serialize + KeyValuesRoot,
 {
     match T::kind() {
         RootKind::Nested(ref root_key) => to_string_nested_pretty(root_key, value, opts),
@@ -71,7 +71,7 @@ where
 /// of `Serialize` decides to fail.
 pub fn to_string_custom<T, F>(value: &T, formatter: F) -> Result<String>
 where
-    T: ?Sized + Serialize + KeyvaluesRoot,
+    T: ?Sized + Serialize + KeyValuesRoot,
     F: Formatter,
 {
     match T::kind() {
@@ -169,7 +169,7 @@ where
 pub fn to_writer<W, T>(writer: W, value: &T) -> Result<()>
 where
     W: Write,
-    T: ?Sized + Serialize + KeyvaluesRoot,
+    T: ?Sized + Serialize + KeyValuesRoot,
 {
     match T::kind() {
         RootKind::Nested(ref root_key) => to_writer_nested(writer, root_key, value),
@@ -186,7 +186,7 @@ where
 pub fn to_writer_pretty<W, T>(writer: W, value: &T, opts: FormatOpts) -> Result<()>
 where
     W: Write,
-    T: ?Sized + Serialize + KeyvaluesRoot,
+    T: ?Sized + Serialize + KeyValuesRoot,
 {
     match T::kind() {
         RootKind::Nested(ref root_key) => to_writer_nested_pretty(writer, root_key, value, opts),
@@ -203,7 +203,7 @@ where
 pub fn to_writer_custom<W, T, F>(writer: W, value: &T, formatter: F) -> Result<()>
 where
     W: Write,
-    T: ?Sized + Serialize + KeyvaluesRoot,
+    T: ?Sized + Serialize + KeyValuesRoot,
     F: Formatter,
 {
     match T::kind() {
@@ -312,7 +312,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Keyvalues, KeyvaluesRoot, Object, RootKind, Value};
+    use crate::{KeyValues, KeyValuesRoot, Object, RootKind, Value};
     use indoc::indoc;
 
     #[derive(Serialize)]
@@ -323,7 +323,7 @@ mod tests {
         likes_catnip: bool,
     }
 
-    impl KeyvaluesRoot for Cat {
+    impl KeyValuesRoot for Cat {
         fn kind() -> RootKind {
             RootKind::Nested(String::from("Cat"))
         }
@@ -331,7 +331,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "preserve_order")]
-    fn ser_keyvalues() -> Result<()> {
+    fn ser_key_values() -> Result<()> {
         let mut root = Object::new();
         root.insert(
             String::from("FieldOfView"),
@@ -345,7 +345,7 @@ mod tests {
             String::from("Volume"),
             vec![Value::String(String::from("0.15"))],
         );
-        let kv = Keyvalues::new(String::from("Settings"), Value::Object(root));
+        let kv = KeyValues::new(String::from("Settings"), Value::Object(root));
 
         assert_eq!(
             to_string(&kv)?,

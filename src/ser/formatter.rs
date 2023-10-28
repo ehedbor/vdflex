@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-/// This trait allows the user to customize Keyvalues formatting.
+/// This trait allows the user to customize KeyValues formatting.
 ///
 /// By default, there is only one implementation: [PrettyFormatter].
 pub trait Formatter {
@@ -101,7 +101,7 @@ pub trait Formatter {
     }
 }
 
-/// Controls the formatting of curly brackets in Keyvalues objects.
+/// Controls the formatting of curly brackets in KeyValues objects.
 #[derive(Copy, Clone, Debug)]
 pub enum IndentStyle {
     /// Place `{` and `}` on new lines.

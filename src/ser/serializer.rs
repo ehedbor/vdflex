@@ -16,12 +16,12 @@ impl<W> Serializer<W, PrettyFormatter>
 where
     W: Write,
 {
-    /// Creates a new Keyvalues serializer using an appropriate formatter.
+    /// Creates a new KeyValues serializer using an appropriate formatter.
     pub fn new(writer: W) -> Self {
         Self::custom(writer, PrettyFormatter::new())
     }
 
-    /// Creates a new Keyvalues serializer using a `PrettyFormatter` with the given options.
+    /// Creates a new KeyValues serializer using a `PrettyFormatter` with the given options.
     pub fn pretty(writer: W, opts: FormatOpts) -> Self {
         Self::custom(writer, PrettyFormatter::with_opts(opts))
     }

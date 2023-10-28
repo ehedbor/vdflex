@@ -1,4 +1,4 @@
-use crate::{Error, KeyvaluesRoot, Result, RootKind};
+use crate::{Error, KeyValuesRoot, Result, RootKind};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
@@ -10,7 +10,7 @@ use serde::Deserialize;
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
 pub fn from_str<'a, T>(s: &'a str) -> Result<T>
 where
-    T: Deserialize<'a> + KeyvaluesRoot,
+    T: Deserialize<'a> + KeyValuesRoot,
 {
     match T::kind() {
         RootKind::Nested(root_key) => {
@@ -61,7 +61,7 @@ where
 pub fn from_reader<R, T>(reader: R) -> Result<(String, T)>
 where
     R: std::io::Read,
-    T: DeserializeOwned + KeyvaluesRoot,
+    T: DeserializeOwned + KeyValuesRoot,
 {
     match T::kind() {
         RootKind::Nested(root_key) => {
@@ -110,7 +110,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Keyvalues, Value};
+    use crate::{KeyValues, Value};
     use indoc::indoc;
     use serde::Deserialize;
 
@@ -129,8 +129,8 @@ mod tests {
     "##};
 
     #[test]
-    fn de_simple_keyvalues() {
-        let vdf: Keyvalues = from_str_flat(SIMPLE_KEYVALUES).unwrap();
+    fn de_simple_key_values() {
+        let vdf: KeyValues = from_str_flat(SIMPLE_KEYVALUES).unwrap();
 
         assert_eq!(vdf.root.len(), 1);
         assert_eq!(vdf.root["foo"].len(), 1);
@@ -189,7 +189,7 @@ mod tests {
         dogs: Dogs,
     }
 
-    impl KeyvaluesRoot for Animals {
+    impl KeyValuesRoot for Animals {
         fn kind() -> RootKind {
             RootKind::Flattened
         }
