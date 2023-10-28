@@ -45,7 +45,7 @@ pub trait Formatter {
 
 /// Controls the formatting of curly brackets in KeyValues objects.
 #[derive(Copy, Clone, Debug)]
-pub enum IndentStyle {
+pub enum BraceStyle {
     /// Place `{` and `}` on new lines.
     ///
     /// # Examples
@@ -85,21 +85,29 @@ pub enum Quoting {
 
 #[derive(Clone, Debug)]
 pub struct FormatOpts {
+    /// The sequence of characters to print for each indent level.
     pub indent: String,
-    pub indent_style: IndentStyle,
+    /// The separator between keys and values.
+    pub separator: String,
+    /// How to format braces.
+    pub brace_style: BraceStyle,
+    /// How object keys should be quoted.
     pub quote_keys: Quoting,
-    pub quote_strings: Quoting,
-    pub quote_macros: Quoting,
+    /// How macro keys should be quoted.
+    pub quote_macro_keys: Quoting,
+    /// How object/macro values should be quoted.
+    pub quote_values: Quoting,
 }
 
 impl Default for FormatOpts {
     fn default() -> Self {
         FormatOpts {
             indent: String::from("    "),
-            indent_style: IndentStyle::Allman,
+            separator: String::from(" "),
+            brace_style: BraceStyle::Allman,
             quote_keys: Quoting::Always,
-            quote_strings: Quoting::Always,
-            quote_macros: Quoting::Always,
+            quote_macro_keys: Quoting::Always,
+            quote_values: Quoting::Always,
         }
     }
 }
@@ -207,15 +215,15 @@ impl Formatter for PrettyFormatter {
     where
         W: ?Sized + Write,
     {
-        match self.opts.indent_style {
-            IndentStyle::Allman => {
+        match self.opts.brace_style {
+            BraceStyle::Allman => {
                 writer.write_all(b"\n")?;
                 self.write_indent(writer)?;
                 writer.write_all(b"{")?;
                 self.push_indent();
                 writer.write_all(b"\n")?;
             }
-            IndentStyle::KAndR => {
+            BraceStyle::KAndR => {
                 writer.write_all(b" {")?;
                 self.push_indent();
                 writer.write_all(b"\n")?;
@@ -248,7 +256,7 @@ impl Formatter for PrettyFormatter {
         W: ?Sized + Write,
     {
         self.write_indent(writer)?;
-        self.write_quotable(writer, key, self.opts.quote_macros)?;
+        self.write_quotable(writer, key, self.opts.quote_macro_keys)?;
         Ok(())
     }
 
@@ -256,8 +264,8 @@ impl Formatter for PrettyFormatter {
     where
         W: ?Sized + Write,
     {
-        writer.write_all(b" ")?;
-        self.write_quotable(writer, s, self.opts.quote_strings)?;
+        writer.write_all(self.opts.separator.as_bytes())?;
+        self.write_quotable(writer, s, self.opts.quote_values)?;
         writer.write_all(b"\n")?;
         Ok(())
     }
@@ -272,6 +280,7 @@ impl Formatter for PrettyFormatter {
 
 #[cfg(test)]
 mod tests {
+    use std::error::Error;
     use super::*;
     use indoc::indoc;
     use std::io;
@@ -326,19 +335,19 @@ mod tests {
     }
 
     #[test]
-    fn simple() {
+    fn simple() -> Result<(), Box<dyn Error>> {
         let mut f = PrettyFormatter::with_opts(FormatOpts {
             indent: "    ".to_string(),
-            indent_style: IndentStyle::Allman,
+            brace_style: BraceStyle::Allman,
             quote_keys: Quoting::Always,
-            quote_strings: Quoting::Always,
+            quote_values: Quoting::Always,
             ..FormatOpts::default()
         });
         let mut buf = Vec::new();
-        write_simple_vmt(&mut f, &mut buf).unwrap();
+        write_simple_vmt(&mut f, &mut buf)?;
 
         assert_eq!(
-            String::from_utf8(buf).unwrap(),
+            String::from_utf8(buf)?,
             indoc! {r##"
                 "LightmappedGeneric"
                 {
@@ -347,22 +356,23 @@ mod tests {
                 }
             "##}
         );
+        Ok(())
     }
 
     #[test]
-    fn simple_quote_keys() {
+    fn simple_quote_keys() -> Result<(), Box<dyn Error>> {
         let mut f = PrettyFormatter::with_opts(FormatOpts {
             indent: "    ".to_string(),
-            indent_style: IndentStyle::Allman,
+            brace_style: BraceStyle::Allman,
             quote_keys: Quoting::Always,
-            quote_strings: Quoting::WhenRequired,
+            quote_values: Quoting::WhenRequired,
             ..FormatOpts::default()
         });
         let mut buf = Vec::new();
-        write_simple_vmt(&mut f, &mut buf).unwrap();
+        write_simple_vmt(&mut f, &mut buf)?;
 
         assert_eq!(
-            String::from_utf8(buf).unwrap(),
+            String::from_utf8(buf)?,
             indoc! {r#"
                 "LightmappedGeneric"
                 {
@@ -371,22 +381,23 @@ mod tests {
                 }
             "#}
         );
+        Ok(())
     }
 
     #[test]
-    fn simple_quote_values() {
+    fn simple_quote_values() -> Result<(), Box<dyn Error>> {
         let mut f = PrettyFormatter::with_opts(FormatOpts {
             indent: "    ".to_string(),
-            indent_style: IndentStyle::Allman,
+            brace_style: BraceStyle::Allman,
             quote_keys: Quoting::WhenRequired,
-            quote_strings: Quoting::Always,
+            quote_values: Quoting::Always,
             ..FormatOpts::default()
         });
         let mut buf = Vec::new();
-        write_simple_vmt(&mut f, &mut buf).unwrap();
+        write_simple_vmt(&mut f, &mut buf)?;
 
         assert_eq!(
-            String::from_utf8(buf).unwrap(),
+            String::from_utf8(buf)?,
             indoc! {r#"
                 LightmappedGeneric
                 {
@@ -395,22 +406,50 @@ mod tests {
                 }
             "#}
         );
+        Ok(())
     }
 
     #[test]
-    fn simple_knr() {
+    fn simple_yaml() -> Result<(), Box<dyn Error>> {
         let mut f = PrettyFormatter::with_opts(FormatOpts {
             indent: "  ".to_string(),
-            indent_style: IndentStyle::KAndR,
-            quote_keys: Quoting::Always,
-            quote_strings: Quoting::Always,
+            separator: ": ".to_string(),
+            brace_style: BraceStyle::KAndR,
+            quote_keys: Quoting::WhenRequired,
+            quote_values: Quoting::WhenRequired,
             ..FormatOpts::default()
         });
         let mut buf = Vec::new();
-        write_simple_vmt(&mut f, &mut buf).unwrap();
+        write_simple_vmt(&mut f, &mut buf)?;
+
+        // Developer's note: Please don't use this library to produce YAML.
+        // Developer's note: This is not even valid YAML anyways.
+        assert_eq!(
+            String::from_utf8(buf)?,
+            indoc! {r#"
+                LightmappedGeneric {
+                  $basetexture: coast\\shingle_01
+                  $surfaceprop: gravel
+                }
+            "#}
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn simple_knr() -> Result<(), Box<dyn Error>> {
+        let mut f = PrettyFormatter::with_opts(FormatOpts {
+            indent: "  ".to_string(),
+            brace_style: BraceStyle::KAndR,
+            quote_keys: Quoting::Always,
+            quote_values: Quoting::Always,
+            ..FormatOpts::default()
+        });
+        let mut buf = Vec::new();
+        write_simple_vmt(&mut f, &mut buf)?;
 
         assert_eq!(
-            String::from_utf8(buf).unwrap(),
+            String::from_utf8(buf)?,
             indoc! {r#"
                 "LightmappedGeneric" {
                   "$basetexture" "coast\\shingle_01"
@@ -418,22 +457,24 @@ mod tests {
                 }
             "#}
         );
+        Ok(())
     }
 
     #[test]
-    fn nested() -> io::Result<()> {
+    fn nested() -> Result<(), Box<dyn Error>> {
         let mut f = PrettyFormatter::with_opts(FormatOpts {
             indent: "    ".to_string(),
-            indent_style: IndentStyle::Allman,
+            separator: " ".to_string(),
+            brace_style: BraceStyle::Allman,
+            quote_macro_keys: Quoting::Always,
             quote_keys: Quoting::Always,
-            quote_strings: Quoting::Always,
-            quote_macros: Quoting::Always,
+            quote_values: Quoting::Always,
         });
         let mut buf = Vec::new();
         write_nested_vdf(&mut f, &mut buf)?;
 
         assert_eq!(
-            String::from_utf8(buf).unwrap(),
+            String::from_utf8(buf)?,
             indoc! {r##"
                 // Test comment
                 "#base" "panelBase.res"
@@ -447,24 +488,24 @@ mod tests {
                 }
             "##}
         );
-
         Ok(())
     }
 
     #[test]
-    fn nested_quote_keys() -> io::Result<()> {
+    fn nested_quote_keys() -> Result<(), Box<dyn Error>> {
         let mut f = PrettyFormatter::with_opts(FormatOpts {
             indent: "    ".to_string(),
-            indent_style: IndentStyle::Allman,
+            separator: " ".to_string(),
+            brace_style: BraceStyle::Allman,
             quote_keys: Quoting::Always,
-            quote_strings: Quoting::WhenRequired,
-            quote_macros: Quoting::WhenRequired,
+            quote_values: Quoting::WhenRequired,
+            quote_macro_keys: Quoting::WhenRequired,
         });
         let mut buf = Vec::new();
         write_nested_vdf(&mut f, &mut buf)?;
 
         assert_eq!(
-            String::from_utf8(buf).unwrap(),
+            String::from_utf8(buf)?,
             indoc! {r##"
                 // Test comment
                 #base panelBase.res
@@ -483,19 +524,20 @@ mod tests {
     }
 
     #[test]
-    fn nested_knr() -> io::Result<()> {
+    fn nested_knr() -> Result<(), Box<dyn Error>> {
         let mut f = PrettyFormatter::with_opts(FormatOpts {
             indent: "  ".to_string(),
-            indent_style: IndentStyle::KAndR,
+            separator: " ".to_string(),
+            brace_style: BraceStyle::KAndR,
             quote_keys: Quoting::Always,
-            quote_strings: Quoting::Always,
-            quote_macros: Quoting::Always,
+            quote_values: Quoting::Always,
+            quote_macro_keys: Quoting::Always,
         });
         let mut buf = Vec::new();
         write_nested_vdf(&mut f, &mut buf)?;
 
         assert_eq!(
-            String::from_utf8(buf).unwrap(),
+            String::from_utf8(buf)?,
             indoc! {r##"
                 // Test comment
                 "#base" "panelBase.res"
@@ -507,7 +549,34 @@ mod tests {
                 }
             "##}
         );
+        Ok(())
+    }
 
+    #[test]
+    fn nested_tab_stops() -> Result<(), Box<dyn Error>> {
+        let mut f = PrettyFormatter::with_opts(FormatOpts {
+            indent: "\t".to_string(),
+            separator: "\t\t".to_string(),
+            brace_style: BraceStyle::KAndR,
+            quote_keys: Quoting::Always,
+            quote_values: Quoting::Always,
+            quote_macro_keys: Quoting::Always,
+        });
+        let mut buf = Vec::new();
+        write_nested_vdf(&mut f, &mut buf)?;
+        assert_eq!(
+            String::from_utf8(buf)?,
+            indoc! {"
+                // Test comment
+                \"#base\"\t\t\"panelBase.res\"
+                \"Resource/specificPanel.res\" {
+                \t\"Greeting\"\t\t\"Hello, \\\"Bob\\\"!\"
+                \t\"Nested\" {
+                \t\t\"Object\"\t\t\"1\"
+                \t}
+                }
+            "}
+        );
         Ok(())
     }
 }

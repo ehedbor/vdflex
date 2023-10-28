@@ -6,7 +6,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::io::Write;
 
-pub use formatter::{FormatOpts, Formatter, IndentStyle, PrettyFormatter};
+pub use formatter::{FormatOpts, Formatter, BraceStyle, PrettyFormatter};
 pub use serializer::Serializer;
 
 macro_rules! to_string_impl {
@@ -438,7 +438,7 @@ mod tests {
 
         let opts = FormatOpts {
             indent: String::from("  "),
-            indent_style: IndentStyle::KAndR,
+            brace_style: BraceStyle::KAndR,
             ..Default::default()
         };
 
