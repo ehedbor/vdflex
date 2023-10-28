@@ -4,100 +4,42 @@ use std::io::{self, Write};
 ///
 /// By default, there is only one implementation: [PrettyFormatter].
 pub trait Formatter {
-    /// Called before writing an object. Writes a `{` to the specified writer.
+    /// Called before writing an object (except the root). Writes a `{` to the specified writer.
     fn begin_object<W>(&mut self, writer: &mut W) -> io::Result<()>
     where
         W: ?Sized + Write;
 
-    /// Called after every object. Writes a `}` to the specified writer.
+    /// Called after every object (except the root). Writes a `}` to the specified writer.
     fn end_object<W>(&mut self, writer: &mut W) -> io::Result<()>
     where
         W: ?Sized + Write;
 
-    /// Called before writing a key. Writes a `"` to the specified writer.
-    fn begin_key<W>(&mut self, writer: &mut W) -> io::Result<()>
+    /// Writes an object key.
+    fn write_key<W>(&mut self, writer: &mut W, key: &str) -> io::Result<()>
     where
         W: ?Sized + Write;
 
-    /// Called after writing a key. Writes a `"` to the specified writer.
-    fn end_key<W>(&mut self, writer: &mut W) -> io::Result<()>
+    /// Writes a macro key.
+    fn write_macro_key<W>(&mut self, writer: &mut W, key: &str) -> io::Result<()>
     where
         W: ?Sized + Write;
 
-    /// Called before writing a macro name.
-    fn begin_macro_key<W>(&mut self, writer: &mut W) -> io::Result<()>
+    /// Writes a string value.
+    fn write_value<W>(&mut self, writer: &mut W, s: &str) -> io::Result<()>
     where
         W: ?Sized + Write;
 
-    /// Called after writing a macro name.
-    fn end_macro_key<W>(&mut self, writer: &mut W) -> io::Result<()>
+    /// Writes a conditional tag.
+    fn write_conditional<W>(&mut self, writer: &mut W, condition: &str) -> io::Result<()>
     where
         W: ?Sized + Write;
 
-    /// Called before every string value. Writes a `"` to the specified writer.
-    fn begin_string<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write;
-
-    /// Called after every string value. Writes a `"` to the specified writer.
-    fn end_string<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write;
-
-    /// Called before writing a conditional. Writes a `[` to the specified writer.
-    fn begin_conditional<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write;
-
-    /// Called after writing a conditional. Writes a `]` to the specified writer.
-    fn end_conditional<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write;
-
-    /// Called before writing a line comment.
-    fn begin_line_comment<W>(&mut self, writer: &mut W) -> io::Result<()>
+    /// Writes a line comment.
+    fn write_line_comment<W>(&mut self, writer: &mut W, comment: &str) -> io::Result<()>
     where
         W: ?Sized + Write,
     {
-        writer.write_all(b"//")
-    }
-
-    /// Called after writing a line comment.
-    fn end_line_comment<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
-        writer.write_all(b"\n")
-    }
-
-    /// Writes a string that might be quoted and may need to be escaped.
-    ///
-    /// If you want to write an arbitrary string, see [Formatter::write_raw_str].
-    ///
-    /// # Safety
-    ///
-    /// This method may only be called between these methods:
-    ///
-    /// - [Formatter::begin_key] and [Formatter::end_key],
-    /// - [Formatter::begin_macro_key] and [Formatter::end_macro_key], and
-    /// - [Formatter::begin_string] and [Formatter::end_string].
-    ///
-    /// In addition, this method may only be called *once* between such a pair. This is due to a
-    /// limitation of [PrettyFormatter]. In order to support optionally writing a quote, the
-    /// formatter must know if a quote is necessary before writing any string fragments. However,
-    /// this is only known once the entire fragment sequence is written. It was problematic to store
-    /// references to the unwritten data without copying it, so the approach taken here is to
-    /// abandon the idea of writing multiple fragments at once.
-    fn write_quotable_str<W>(&mut self, writer: &mut W, s: &str) -> io::Result<()>
-    where
-        W: ?Sized + Write;
-
-    /// Writes an entire string directly.
-    fn write_raw_str<W>(&mut self, writer: &mut W, s: &str) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
-        writer.write_all(s.as_bytes())
+        write!(writer, "// {comment}\n")
     }
 }
 
@@ -166,7 +108,6 @@ impl Default for FormatOpts {
 pub struct PrettyFormatter {
     opts: FormatOpts,
     indent_level: i32,
-    force_quotes: bool,
 }
 
 impl PrettyFormatter {
@@ -178,7 +119,6 @@ impl PrettyFormatter {
         Self {
             opts,
             indent_level: 0,
-            force_quotes: false,
         }
     }
 
@@ -204,22 +144,54 @@ impl PrettyFormatter {
         Ok(())
     }
 
-    fn start_quotable(&mut self, quoting: Quoting) -> io::Result<()> {
-        self.force_quotes = match quoting {
-            Quoting::Always => true,
-            Quoting::WhenRequired => false,
-        };
-        Ok(())
-    }
-
-    fn end_quotable<W>(&mut self, writer: &mut W) -> io::Result<()>
+    fn write_quotable<W>(&mut self, writer: &mut W, s: &str, quoting: Quoting) -> io::Result<()>
     where
         W: ?Sized + Write,
     {
-        if self.force_quotes {
+        // Write a quote if necessary and remember for later.
+        let need_quotes = match quoting {
+            Quoting::Always => true,
+            Quoting::WhenRequired => {
+                s.starts_with('[')
+                    || s.contains(|c: char| c == '{' || c == '}' || c == '"' || c.is_whitespace())
+            }
+        };
+
+        if need_quotes {
             writer.write_all(b"\"")?;
         }
-        self.force_quotes = false;
+
+        // Write all fragment-escape pairs.
+        let mut start = 0;
+        for (current, unescaped) in s.match_indices(&['\t', '\n', '\\', '\"']) {
+            // Write a raw string fragment if one was present.
+            if start != current {
+                writer.write_all(s[start..current].as_bytes())?;
+            }
+
+            // Now write the escape character.
+            let escaped = match unescaped.chars().next().unwrap() {
+                '\t' => "\\t",
+                '\n' => "\\n",
+                '\\' => "\\\\",
+                '\"' => "\\\"",
+                _ => unreachable!(),
+            };
+            writer.write_all(escaped.as_bytes())?;
+
+            start = current + unescaped.len();
+        }
+
+        // If there was a trailing fragment, write that too.
+        if start < s.len() {
+            writer.write_all(s[start..].as_bytes())?;
+        }
+
+        // write the trailing quote
+        if need_quotes {
+            writer.write_all(b"\"")?;
+        }
+
         Ok(())
     }
 }
@@ -262,110 +234,39 @@ impl Formatter for PrettyFormatter {
         writer.write_all(b"}\n")
     }
 
-    fn begin_key<W>(&mut self, writer: &mut W) -> io::Result<()>
+    fn write_key<W>(&mut self, writer: &mut W, key: &str) -> io::Result<()>
     where
         W: ?Sized + Write,
     {
         self.write_indent(writer)?;
-        self.start_quotable(self.opts.quote_keys)
+        self.write_quotable(writer, key, self.opts.quote_keys)?;
+        Ok(())
     }
 
-    fn end_key<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
-        self.end_quotable(writer)
-    }
-
-    fn begin_macro_key<W>(&mut self, writer: &mut W) -> io::Result<()>
+    fn write_macro_key<W>(&mut self, writer: &mut W, key: &str) -> io::Result<()>
     where
         W: ?Sized + Write,
     {
         self.write_indent(writer)?;
-        self.start_quotable(self.opts.quote_macros)
+        self.write_quotable(writer, key, self.opts.quote_macros)?;
+        Ok(())
     }
 
-    fn end_macro_key<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
-        self.end_quotable(writer)
-    }
-
-    fn begin_string<W>(&mut self, writer: &mut W) -> io::Result<()>
+    fn write_value<W>(&mut self, writer: &mut W, s: &str) -> io::Result<()>
     where
         W: ?Sized + Write,
     {
         writer.write_all(b" ")?;
-        self.start_quotable(self.opts.quote_strings)
-    }
-
-    fn end_string<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
-        self.end_quotable(writer)?;
-        writer.write_all(b"\n")
-    }
-
-    fn begin_conditional<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
-        writer.write_all(b" [")
-    }
-
-    fn end_conditional<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
-        writer.write_all(b"]")
-    }
-
-    fn write_quotable_str<W>(&mut self, writer: &mut W, s: &str) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
-        // Write a quote if necessary and remember for later.
-        let write_quote = if self.force_quotes {
-            true
-        } else {
-            s.starts_with('[')
-                || s.contains(|c: char| c == '{' || c == '}' || c == '"' || c.is_whitespace())
-        };
-
-        if write_quote {
-            self.force_quotes = true;
-            writer.write_all(b"\"")?;
-        }
-
-        // Write all fragment-escape pairs.
-        let mut start = 0;
-        for (current, unescaped) in s.match_indices(&['\t', '\n', '\\', '\"']) {
-            // Write a raw string fragment if one was present.
-            if start != current {
-                writer.write_all(s[start..current].as_bytes())?;
-            }
-
-            // Now write the escape character.
-            let escaped = match unescaped.chars().next().unwrap() {
-                '\t' => "\\t",
-                '\n' => "\\n",
-                '\\' => "\\\\",
-                '\"' => "\\\"",
-                _ => unreachable!(),
-            };
-            writer.write_all(escaped.as_bytes())?;
-
-            start = current + unescaped.len();
-        }
-
-        // If there was a trailing fragment, write that too.
-        if start < s.len() {
-            writer.write_all(s[start..].as_bytes())?;
-        }
-
+        self.write_quotable(writer, s, self.opts.quote_strings)?;
+        writer.write_all(b"\n")?;
         Ok(())
+    }
+
+    fn write_conditional<W>(&mut self, writer: &mut W, condition: &str) -> io::Result<()>
+    where
+        W: ?Sized + Write,
+    {
+        write!(writer, " [{condition}]")
     }
 }
 
@@ -380,27 +281,15 @@ mod tests {
         F: Formatter,
         W: ?Sized + Write,
     {
-        f.begin_key(w)?;
-        f.write_quotable_str(w, "LightmappedGeneric")?;
-        f.end_key(w)?;
+        f.write_key(w, "LightmappedGeneric")?;
 
         f.begin_object(w)?;
         {
-            f.begin_key(w)?;
-            f.write_quotable_str(w, "$basetexture")?;
-            f.end_key(w)?;
+            f.write_key(w, "$basetexture")?;
+            f.write_value(w, "coast\\shingle_01")?;
 
-            f.begin_string(w)?;
-            f.write_quotable_str(w, "coast\\shingle_01")?;
-            f.end_string(w)?;
-
-            f.begin_key(w)?;
-            f.write_quotable_str(w, "$surfaceprop")?;
-            f.end_key(w)?;
-
-            f.begin_string(w)?;
-            f.write_quotable_str(w, "gravel")?;
-            f.end_string(w)?;
+            f.write_key(w, "$surfaceprop")?;
+            f.write_value(w, "gravel")?;
         }
         f.end_object(w)?;
 
@@ -412,51 +301,24 @@ mod tests {
         F: Formatter,
         W: ?Sized + Write,
     {
-        f.begin_line_comment(w)?;
-        f.write_raw_str(w, " Test comment")?;
-        f.end_line_comment(w)?;
+        f.write_line_comment(w, "Test comment")?;
 
-        f.begin_macro_key(w)?;
-        f.write_quotable_str(w, "#base")?;
-        f.end_macro_key(w)?;
+        f.write_macro_key(w, "#base")?;
+        f.write_value(w, "panelBase.res")?;
 
-        f.begin_string(w)?;
-        f.write_quotable_str(w, "panelBase.res")?;
-        f.end_string(w)?;
-
-        f.begin_key(w)?;
-        f.write_quotable_str(w, "Resource/specificPanel.res")?;
-        f.end_key(w)?;
-
+        f.write_key(w, "Resource/specificPanel.res")?;
         f.begin_object(w)?;
         {
+            f.write_key(w, "Greeting")?;
+            f.write_value(w, "Hello, \"Bob\"!")?;
+
+            f.write_key(w, "Nested")?;
+            f.begin_object(w)?;
             {
-                f.begin_key(w)?;
-                f.write_quotable_str(w, "Greeting")?;
-                f.end_key(w)?;
-
-                f.begin_string(w)?;
-                f.write_quotable_str(w, "Hello, \"Bob\"!")?;
-                f.end_string(w)?;
+                f.write_key(w, "Object")?;
+                f.write_value(w, "1")?;
             }
-
-            {
-                f.begin_key(w)?;
-                f.write_quotable_str(w, "Nested")?;
-                f.end_key(w)?;
-
-                f.begin_object(w)?;
-                {
-                    f.begin_key(w)?;
-                    f.write_quotable_str(w, "Object")?;
-                    f.end_key(w)?;
-
-                    f.begin_string(w)?;
-                    f.write_quotable_str(w, "1")?;
-                    f.end_string(w)?;
-                }
-                f.end_object(w)?;
-            }
+            f.end_object(w)?;
         }
         f.end_object(w)?;
 

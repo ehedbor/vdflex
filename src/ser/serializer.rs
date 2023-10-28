@@ -9,7 +9,7 @@ where
     F: Formatter,
 {
     writer: W,
-    formatter: F
+    formatter: F,
 }
 
 impl<W> Serializer<W, PrettyFormatter>
@@ -111,9 +111,7 @@ where
 
     fn serialize_str(mut self, v: &str) -> Result<Self::Ok> {
         self.formatter
-            .begin_string(&mut self.writer)
-            .and_then(|_| self.formatter.write_quotable_str(&mut self.writer, v))
-            .and_then(|_| self.formatter.end_string(&mut self.writer))
+            .write_value(&mut self.writer, v)
             .map_err(|e| Error::Io(e))
     }
 
