@@ -6,7 +6,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::io::Write;
 
-pub use formatter::{FormatOpts, Formatter, BraceStyle, PrettyFormatter};
+pub use formatter::{BraceStyle, FormatOpts, Formatter, PrettyFormatter, Quoting};
 pub use serializer::Serializer;
 
 macro_rules! to_string_impl {

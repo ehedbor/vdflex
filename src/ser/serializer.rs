@@ -109,7 +109,7 @@ where
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok> {
         self.formatter
-            .write_value(&mut self.writer, v)
+            .write_string(&mut self.writer, v)
             .map_err(|e| Error::Io(e))
     }
 
@@ -162,20 +162,33 @@ where
     where
         T: Serialize,
     {
-        self.key_stack.push(Cow::Borrowed(variant));
-
         self.formatter
             .begin_object(&mut self.writer)
             .map_err(|e| Error::Io(e))?;
+
+        self.key_stack.push(Cow::Borrowed(variant));
         self.formatter
-            .write_key(&mut self.writer, variant)
+            .begin_key(&mut self.writer)
+            .map_err(|e| Error::Io(e))?;
+        self.formatter
+            .write_string(&mut self.writer, variant)
+            .map_err(|e| Error::Io(e))?;
+        self.formatter
+            .end_key(&mut self.writer)
+            .map_err(|e| Error::Io(e))?;
+
+        self.formatter
+            .begin_value(&mut self.writer)
             .map_err(|e| Error::Io(e))?;
         value.serialize(&mut *self)?;
         self.formatter
+            .end_value(&mut self.writer)
+            .map_err(|e| Error::Io(e))?;
+        self.key_stack.pop();
+
+        self.formatter
             .end_object(&mut self.writer)
             .map_err(|e| Error::Io(e))?;
-
-        self.key_stack.pop();
 
         Ok(())
     }
@@ -231,9 +244,20 @@ where
         self.formatter
             .begin_object(&mut self.writer)
             .map_err(|e| Error::Io(e))?;
+
         self.key_stack.push(Cow::Borrowed(variant));
         self.formatter
-            .write_key(&mut self.writer, variant)
+            .begin_key(&mut self.writer)
+            .map_err(|e| Error::Io(e))?;
+        self.formatter
+            .write_string(&mut self.writer, variant)
+            .map_err(|e| Error::Io(e))?;
+        self.formatter
+            .end_key(&mut self.writer)
+            .map_err(|e| Error::Io(e))?;
+
+        self.formatter
+            .begin_value(&mut self.writer)
             .map_err(|e| Error::Io(e))?;
         self.formatter
             .begin_object(&mut self.writer)
@@ -299,7 +323,12 @@ where
         self.serializer.key_stack.push(Cow::Owned(String::from(v)));
         self.serializer
             .formatter
-            .write_key(&mut self.serializer.writer, v)
+            .begin_key(&mut self.serializer.writer)
+            .map_err(|e| Error::Io(e))?;
+        v.serialize(&mut *self.serializer)?;
+        self.serializer
+            .formatter
+            .end_key(&mut self.serializer.writer)
             .map_err(|e| Error::Io(e))
     }
 
@@ -413,10 +442,24 @@ where
         T: ?Sized + Serialize,
     {
         let key = self.key_stack.last().ok_or(Error::RootLevelSequence)?;
+
         self.formatter
-            .write_key(&mut self.writer, key)
+            .begin_key(&mut self.writer)
+            .map_err(|e| Error::Io(e))?;
+        self.formatter
+            .write_string(&mut self.writer, key)
+            .map_err(|e| Error::Io(e))?;
+        self.formatter
+            .end_key(&mut self.writer)
+            .map_err(|e| Error::Io(e))?;
+
+        self.formatter
+            .begin_value(&mut self.writer)
             .map_err(|e| Error::Io(e))?;
         value.serialize(&mut **self)?;
+        self.formatter
+            .end_value(&mut self.writer)
+            .map_err(|e| Error::Io(e))?;
 
         Ok(())
     }
@@ -511,7 +554,13 @@ where
     where
         T: ?Sized + Serialize,
     {
+        self.formatter
+            .begin_value(&mut self.writer)
+            .map_err(|e| Error::Io(e))?;
         value.serialize(&mut **self)?;
+        self.formatter
+            .end_value(&mut self.writer)
+            .map_err(|e| Error::Io(e))?;
         self.key_stack.pop();
         Ok(())
     }
@@ -536,10 +585,25 @@ where
         T: ?Sized + Serialize,
     {
         self.key_stack.push(Cow::Borrowed(key));
+
         self.formatter
-            .write_key(&mut self.writer, key)
+            .begin_key(&mut self.writer)
+            .map_err(|e| Error::Io(e))?;
+        self.formatter
+            .write_string(&mut self.writer, key)
+            .map_err(|e| Error::Io(e))?;
+        self.formatter
+            .end_key(&mut self.writer)
+            .map_err(|e| Error::Io(e))?;
+
+        self.formatter
+            .begin_value(&mut self.writer)
             .map_err(|e| Error::Io(e))?;
         value.serialize(&mut **self)?;
+        self.formatter
+            .end_value(&mut self.writer)
+            .map_err(|e| Error::Io(e))?;
+
         self.key_stack.pop();
         Ok(())
     }
@@ -568,8 +632,12 @@ where
 
     fn end(self) -> Result<Self::Ok> {
         self.formatter
+            .end_value(&mut self.writer)
+            .map_err(|e| Error::Io(e))?;
+        self.formatter
             .end_object(&mut self.writer)
             .map_err(|e| Error::Io(e))?;
+
         self.key_stack.pop();
         self.formatter
             .end_object(&mut self.writer)

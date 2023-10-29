@@ -14,22 +14,32 @@ pub trait Formatter {
     where
         W: ?Sized + Write;
 
-    /// Writes an object key.
-    fn write_key<W>(&mut self, writer: &mut W, key: &str) -> io::Result<()>
+    /// Called before writing a key in a key-value pair.
+    fn begin_key<W>(&mut self, writer: &mut W) -> io::Result<()>
     where
         W: ?Sized + Write;
 
-    /// Writes a macro key.
-    fn write_macro_key<W>(&mut self, writer: &mut W, key: &str) -> io::Result<()>
+    /// Called after writing a key in a key-value pair.
+    fn end_key<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + Write;
+
+    /// Called before writing a value in a key-value pair.
+    fn begin_value<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + Write;
+
+    /// Called after writing a value in a key-value pair.
+    fn end_value<W>(&mut self, writer: &mut W) -> io::Result<()>
     where
         W: ?Sized + Write;
 
     /// Writes a string value.
-    fn write_value<W>(&mut self, writer: &mut W, s: &str) -> io::Result<()>
+    fn write_string<W>(&mut self, writer: &mut W, s: &str) -> io::Result<()>
     where
         W: ?Sized + Write;
 
-    /// Writes a conditional tag.
+    /// Writes a conditional tag. Must be called after `write_key` and before `end_key`.
     fn write_conditional<W>(&mut self, writer: &mut W, condition: &str) -> io::Result<()>
     where
         W: ?Sized + Write;
@@ -41,7 +51,7 @@ pub trait Formatter {
 }
 
 /// Controls the formatting of curly brackets in KeyValues objects.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BraceStyle {
     /// Place `{` and `}` on new lines.
     ///
@@ -68,7 +78,7 @@ pub enum BraceStyle {
 }
 
 /// Controls if strings should be quoted or not.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Quoting {
     /// Always add quotes.
     Always,
@@ -109,11 +119,18 @@ impl Default for FormatOpts {
     }
 }
 
-const ROOT_INDENT: i32 = -1;
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum ElementKind {
+    Object,
+    KeyValue,
+    Key,
+    Value,
+}
 
 /// A [Formatter] that prints a human-readable version of the input.
 pub struct PrettyFormatter {
     opts: FormatOpts,
+    elements: Vec<ElementKind>,
     indent_level: i32,
 }
 
@@ -125,38 +142,42 @@ impl PrettyFormatter {
     pub fn with_opts(opts: FormatOpts) -> Self {
         Self {
             opts,
-            indent_level: ROOT_INDENT,
+            elements: Vec::new(),
+            indent_level: -1,
         }
     }
 
-    fn push_indent(&mut self) {
-        self.indent_level += 1
+    fn push_element(&mut self, kind: ElementKind) {
+        self.elements.push(kind);
+        if kind == ElementKind::Object {
+            self.indent_level += 1;
+        }
     }
 
-    fn pop_indent(&mut self) {
-        debug_assert!(
-            self.indent_level > ROOT_INDENT,
-            "indent was popped more than it was pushed!"
-        );
-        self.indent_level -= 1
+    fn pop_element(&mut self) -> ElementKind {
+        let elem = self.elements.pop().expect("attempted to pop root element");
+        if elem == ElementKind::Object {
+            self.indent_level -= 1;
+        }
+        return elem;
     }
 
     fn write_indent<W>(&mut self, writer: &mut W) -> io::Result<()>
     where
         W: ?Sized + Write,
     {
-        debug_assert!(
-            self.indent_level > ROOT_INDENT,
-            "tried to write indent outside of root object"
-        );
-
         for _ in 0..self.indent_level {
             writer.write_all(self.opts.indent.as_bytes())?;
         }
         Ok(())
     }
 
-    fn write_quotable<W>(&mut self, writer: &mut W, s: &str, quoting: Quoting) -> io::Result<()>
+    fn write_string_element<W>(
+        &mut self,
+        writer: &mut W,
+        s: &str,
+        quoting: Quoting,
+    ) -> io::Result<()>
     where
         W: ?Sized + Write,
     {
@@ -219,22 +240,23 @@ impl Formatter for PrettyFormatter {
     where
         W: ?Sized + Write,
     {
-        if self.indent_level == ROOT_INDENT {
-            self.push_indent();
-        } else {
-            match self.opts.brace_style {
-                BraceStyle::Allman => {
-                    writer.write_all(b"\n")?;
-                    self.write_indent(writer)?;
-                    writer.write_all(b"{")?;
-                    self.push_indent();
-                    writer.write_all(b"\n")?;
-                }
-                BraceStyle::KAndR => {
-                    writer.write_all(b" {")?;
-                    self.push_indent();
-                    writer.write_all(b"\n")?;
-                }
+        if self.elements.is_empty() {
+            self.push_element(ElementKind::Object);
+            return Ok(());
+        }
+
+        match self.opts.brace_style {
+            BraceStyle::Allman => {
+                writer.write_all(b"\n")?;
+                self.write_indent(writer)?;
+                writer.write_all(b"{")?;
+                self.push_element(ElementKind::Object);
+                writer.write_all(b"\n")?;
+            }
+            BraceStyle::KAndR => {
+                writer.write_all(b" {")?;
+                self.push_element(ElementKind::Object);
+                writer.write_all(b"\n")?;
             }
         }
         Ok(())
@@ -244,46 +266,129 @@ impl Formatter for PrettyFormatter {
     where
         W: ?Sized + Write,
     {
-        self.pop_indent();
-        if self.indent_level > ROOT_INDENT {
+        let elem = self.pop_element();
+        debug_assert_eq!(
+            elem,
+            ElementKind::Object,
+            "attempted to end object before starting it"
+        );
+
+        if !self.elements.is_empty() {
             self.write_indent(writer)?;
-            writer.write_all(b"}\n")?;
+            writer.write_all(b"}")?;
         }
         Ok(())
     }
 
-    fn write_key<W>(&mut self, writer: &mut W, key: &str) -> io::Result<()>
+    fn begin_key<W>(&mut self, writer: &mut W) -> io::Result<()>
     where
         W: ?Sized + Write,
     {
+        self.push_element(ElementKind::KeyValue);
+        self.push_element(ElementKind::Key);
         self.write_indent(writer)?;
-        self.write_quotable(writer, key, self.opts.quote_keys)?;
         Ok(())
     }
 
-    fn write_macro_key<W>(&mut self, writer: &mut W, key: &str) -> io::Result<()>
+    fn end_key<W>(&mut self, _writer: &mut W) -> io::Result<()>
     where
         W: ?Sized + Write,
     {
-        self.write_indent(writer)?;
-        self.write_quotable(writer, key, self.opts.quote_macro_keys)?;
+        let elem = self.pop_element();
+        debug_assert_eq!(
+            elem,
+            ElementKind::Key,
+            "tried to end key before starting it"
+        );
+        debug_assert_eq!(
+            self.elements.last(),
+            Some(&ElementKind::KeyValue),
+            "tried to end key before starting key-value (impossible?)"
+        );
+
         Ok(())
     }
 
-    fn write_value<W>(&mut self, writer: &mut W, s: &str) -> io::Result<()>
+    fn begin_value<W>(&mut self, _writer: &mut W) -> io::Result<()>
     where
         W: ?Sized + Write,
     {
-        writer.write_all(self.opts.separator.as_bytes())?;
-        self.write_quotable(writer, s, self.opts.quote_values)?;
-        writer.write_all(b"\n")?;
+        debug_assert_eq!(
+            self.elements.last(),
+            Some(&ElementKind::KeyValue),
+            "tried to begin value before ending key"
+        );
+        self.push_element(ElementKind::Value);
+        // Don't write the separator yet; values can be objects as well
         Ok(())
+    }
+
+    fn end_value<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + Write,
+    {
+        let elem = self.pop_element();
+        debug_assert_eq!(
+            elem,
+            ElementKind::Value,
+            "tried to end value before beginning it"
+        );
+
+        let elem = self.pop_element();
+        debug_assert_eq!(
+            elem,
+            ElementKind::KeyValue,
+            "tried to end value before beginning key-value (impossible?)"
+        );
+
+        writer.write_all(b"\n")
+    }
+
+    fn write_string<W>(&mut self, writer: &mut W, s: &str) -> io::Result<()>
+    where
+        W: ?Sized + Write,
+    {
+        let element = self.elements.last();
+        debug_assert_ne!(
+            element,
+            Some(&ElementKind::Object),
+            "tried to write string directly to object"
+        );
+        debug_assert_ne!(
+            element,
+            Some(&ElementKind::KeyValue),
+            "tried to write string directly to key-value pair"
+        );
+
+        let quoting = match self.elements.last() {
+            Some(ElementKind::Key) => {
+                if s == "#include" || s == "#base" {
+                    self.opts.quote_macro_keys
+                } else {
+                    self.opts.quote_keys
+                }
+            }
+            Some(ElementKind::Value) => self.opts.quote_values,
+            // Allow serializing plain values
+            _ => self.opts.quote_values,
+        };
+
+        if element == Some(&ElementKind::Value) {
+            writer.write_all(self.opts.separator.as_bytes())?;
+        }
+
+        self.write_string_element(writer, s, quoting)
     }
 
     fn write_conditional<W>(&mut self, writer: &mut W, condition: &str) -> io::Result<()>
     where
         W: ?Sized + Write,
     {
+        debug_assert_eq!(
+            self.elements.last(),
+            Some(&ElementKind::Key),
+            "tried to write conditional tag outside of a key"
+        );
         write!(writer, " [{condition}]")
     }
 
@@ -291,9 +396,23 @@ impl Formatter for PrettyFormatter {
     where
         W: ?Sized + Write,
     {
-        if self.indent_level > ROOT_INDENT {
-            self.write_indent(writer)?;
-        }
+        debug_assert_ne!(
+            self.elements.last(),
+            Some(&ElementKind::KeyValue),
+            "tried to write line comment in a key-value pair"
+        );
+        debug_assert_ne!(
+            self.elements.last(),
+            Some(&ElementKind::Key),
+            "tried to write line comment in a key"
+        );
+        debug_assert_ne!(
+            self.elements.last(),
+            Some(&ElementKind::Value),
+            "tried to write line comment in a value"
+        );
+
+        self.write_indent(writer)?;
         writeln!(writer, "// {comment}")
     }
 }
@@ -305,27 +424,69 @@ mod tests {
     use std::error::Error;
     use std::io;
 
+    #[inline]
+    fn write_document<F, W, Fn>(f: &mut F, w: &mut W, fun: Fn) -> io::Result<()>
+    where
+        F: Formatter,
+        W: ?Sized + Write,
+        Fn: FnOnce(&mut F, &mut W) -> io::Result<()>,
+    {
+        f.begin_object(w)?;
+        fun(f, w)?;
+        f.end_object(w)
+    }
+
+    #[inline]
+    fn write_obj<F, W, Fn>(f: &mut F, w: &mut W, fun: Fn) -> io::Result<()>
+    where
+        F: Formatter,
+        W: ?Sized + Write,
+        Fn: FnOnce(&mut F, &mut W) -> io::Result<()>,
+    {
+        f.begin_value(w)?;
+        f.begin_object(w)?;
+        fun(f, w)?;
+        f.end_object(w)?;
+        f.end_value(w)
+    }
+
+    #[inline]
+    fn write_key<F, W>(f: &mut F, w: &mut W, key: &str) -> io::Result<()>
+    where
+        F: Formatter,
+        W: ?Sized + Write,
+    {
+        f.begin_key(w)?;
+        f.write_string(w, key)?;
+        f.end_key(w)
+    }
+
+    #[inline]
+    fn write_value<F, W>(f: &mut F, w: &mut W, v: &str) -> io::Result<()>
+    where
+        F: Formatter,
+        W: ?Sized + Write,
+    {
+        f.begin_value(w)?;
+        f.write_string(w, v)?;
+        f.end_value(w)
+    }
+
     fn write_simple_vmt<F, W>(f: &mut F, w: &mut W) -> io::Result<()>
     where
         F: Formatter,
         W: ?Sized + Write,
     {
-        f.begin_object(w)?;
-        {
-            f.write_key(w, "LightmappedGeneric")?;
-            f.begin_object(w)?;
-            {
-                f.write_key(w, "$basetexture")?;
-                f.write_value(w, "coast\\shingle_01")?;
+        write_document(f, w, |f, w| {
+            write_key(f, w, "LightmappedGeneric")?;
+            write_obj(f, w, |f, w| {
+                write_key(f, w, "$basetexture")?;
+                write_value(f, w, "coast\\shingle_01")?;
 
-                f.write_key(w, "$surfaceprop")?;
-                f.write_value(w, "gravel")?;
-            }
-            f.end_object(w)?;
-        }
-        f.end_object(w)?;
-
-        Ok(())
+                write_key(f, w, "$surfaceprop")?;
+                write_value(f, w, "gravel")
+            })
+        })
     }
 
     fn write_nested_vdf<F, W>(f: &mut F, w: &mut W) -> io::Result<()>
@@ -334,31 +495,102 @@ mod tests {
         W: ?Sized + Write,
     {
         f.write_line_comment(w, "Test comment")?;
+        write_document(f, w, |f, w| {
+            write_key(f, w, "#base")?;
+            write_value(f, w, "panelBase.res")?;
 
-        f.begin_object(w)?;
-        {
-            f.write_macro_key(w, "#base")?;
-            f.write_value(w, "panelBase.res")?;
+            write_key(f, w, "Resource/specificPanel.res")?;
+            write_obj(f, w, |f, w| {
+                write_key(f, w, "Greeting")?;
+                write_value(f, w, "Hello, \"Bob\"!")?;
 
-            f.write_key(w, "Resource/specificPanel.res")?;
-            f.begin_object(w)?;
-            {
-                f.write_key(w, "Greeting")?;
-                f.write_value(w, "Hello, \"Bob\"!")?;
+                write_key(f, w, "Nested")?;
+                write_obj(f, w, |f, w| {
+                    write_key(f, w, "Object")?;
+                    write_value(f, w, "1")
+                })
+            })
+        })
+    }
 
-                f.write_key(w, "Nested")?;
-                f.begin_object(w)?;
-                {
-                    f.write_key(w, "Object")?;
-                    f.write_value(w, "1")?;
-                }
-                f.end_object(w)?;
-            }
-            f.end_object(w)?;
-        }
-        f.end_object(w)?;
+    fn write_advanced_vdf<F, W>(f: &mut F, w: &mut W) -> io::Result<()>
+    where
+        F: Formatter,
+        W: ?Sized + Write,
+    {
+        f.write_line_comment(w, "Auto-generated by VDFlex")?;
+        write_document(f, w, |f, w| {
+            write_key(f, w, "Basic Settings")?;
+            write_obj(f, w, |f, w| {
+                write_key(f, w, "Sound")?;
+                write_obj(f, w, |f, w| {
+                    write_key(f, w, "Volume")?;
+                    write_value(f, w, "1.0")?;
+                    write_key(f, w, "Enable voice")?;
+                    write_value(f, w, "1")
+                })?;
+                write_key(f, w, "Controls")?;
+                write_obj(f, w, |f, w| {
+                    write_key(f, w, "Sensitivity")?;
+                    write_value(f, w, "0.75")
+                })
+            })?;
 
-        Ok(())
+            f.begin_key(w)?;
+            f.write_string(w, "#include")?;
+            f.write_conditional(w, "$WINDOWS")?;
+            f.end_key(w)?;
+            write_value(f, w, "sourcemods/{MODNAME}.vdf")?;
+
+            f.begin_key(w)?;
+            f.write_string(w, "#include")?;
+            f.write_conditional(w, "$OSX")?;
+            f.end_key(w)?;
+            write_value(f, w, "sourcemods/{MODNAME}-macos.vdf")?;
+
+            f.begin_key(w)?;
+            f.write_string(w, "#include")?;
+            f.write_conditional(w, "$LINUX")?;
+            f.end_key(w)?;
+            write_value(f, w, "sourcemods/{MODNAME}-linux.vdf")?;
+
+            write_key(f, w, "Graphics")?;
+            write_obj(f, w, |f, w| {
+                f.write_line_comment(w, "needs to be a 3:4, 9:16 or 10:16 ratio")?;
+                write_key(f, w, "Resolution")?;
+                write_value(f, w, "[1920,1080]")
+            })?;
+
+            f.write_line_comment(w, "configure keybindings here")?;
+            write_key(f, w, "Binds")?;
+            write_obj(f, w, |f, w| {
+                f.write_line_comment(w, "standard commands")?;
+
+                write_key(f, w, "Bind")?;
+                write_obj(f, w, |f, w| {
+                    write_key(f, w, "key")?;
+                    write_value(f, w, "w")?;
+                    write_key(f, w, "command")?;
+                    write_value(f, w, "+forward")
+                })?;
+                write_key(f, w, "Bind")?;
+                write_obj(f, w, |f, w| {
+                    write_key(f, w, "key")?;
+                    write_value(f, w, "space")?;
+                    write_key(f, w, "command")?;
+                    write_value(f, w, "jump")
+                })?;
+
+                f.write_line_comment(w, "The most important command of all")?;
+                write_key(f, w, "Bind")?;
+                write_obj(f, w, |f, w| {
+                    write_key(f, w, "key")?;
+                    write_value(f, w, "p")?;
+                    write_key(f, w, "command")?;
+                    write_value(f, w, "say \"KABLOOIE\"; +explode")
+                })
+            })
+        })
     }
 
     #[test]
@@ -603,6 +835,122 @@ mod tests {
                 \t}
                 }
             "}
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn advanced() -> Result<(), Box<dyn Error>> {
+        let mut f = PrettyFormatter::with_opts(FormatOpts {
+            indent: "    ".to_string(),
+            separator: "  ".to_string(),
+            brace_style: BraceStyle::Allman,
+            quote_keys: Quoting::Always,
+            quote_values: Quoting::WhenRequired,
+            quote_macro_keys: Quoting::WhenRequired,
+        });
+        let mut buf = Vec::new();
+        write_advanced_vdf(&mut f, &mut buf)?;
+        assert_eq!(
+            String::from_utf8(buf)?,
+            indoc! {r##"
+                // Auto-generated by VDFlex
+                "Basic Settings"
+                {
+                    "Sound"
+                    {
+                        "Volume"  1.0
+                        "Enable voice"  1
+                    }
+                    "Controls"
+                    {
+                        "Sensitivity"  0.75
+                    }
+                }
+                #include [$WINDOWS]  "sourcemods/{MODNAME}.vdf"
+                #include [$OSX]  "sourcemods/{MODNAME}-macos.vdf"
+                #include [$LINUX]  "sourcemods/{MODNAME}-linux.vdf"
+                "Graphics"
+                {
+                    // needs to be a 3:4, 9:16 or 10:16 ratio
+                    "Resolution"  "[1920,1080]"
+                }
+                // configure keybindings here
+                "Binds"
+                {
+                    // standard commands
+                    "Bind"
+                    {
+                        "key"  w
+                        "command"  +forward
+                    }
+                    "Bind"
+                    {
+                        "key"  space
+                        "command"  jump
+                    }
+                    // The most important command of all
+                    "Bind"
+                    {
+                        "key"  p
+                        "command"  "say \"KABLOOIE\"; +explode"
+                    }
+                }
+            "##}
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn advanced_compact() -> Result<(), Box<dyn Error>> {
+        let mut f = PrettyFormatter::with_opts(FormatOpts {
+            indent: "".to_string(),
+            separator: " ".to_string(),
+            brace_style: BraceStyle::KAndR,
+            quote_keys: Quoting::WhenRequired,
+            quote_values: Quoting::WhenRequired,
+            quote_macro_keys: Quoting::WhenRequired,
+        });
+        let mut buf = Vec::new();
+        write_advanced_vdf(&mut f, &mut buf)?;
+        assert_eq!(
+            String::from_utf8(buf)?,
+            indoc! {r##"
+                // Auto-generated by VDFlex
+                "Basic Settings" {
+                Sound {
+                Volume 1.0
+                "Enable voice" 1
+                }
+                Controls {
+                Sensitivity 0.75
+                }
+                }
+                #include [$WINDOWS] "sourcemods/{MODNAME}.vdf"
+                #include [$OSX] "sourcemods/{MODNAME}-macos.vdf"
+                #include [$LINUX] "sourcemods/{MODNAME}-linux.vdf"
+                Graphics {
+                // needs to be a 3:4, 9:16 or 10:16 ratio
+                Resolution "[1920,1080]"
+                }
+                // configure keybindings here
+                Binds {
+                // standard commands
+                Bind {
+                key w
+                command +forward
+                }
+                Bind {
+                key space
+                command jump
+                }
+                // The most important command of all
+                Bind {
+                key p
+                command "say \"KABLOOIE\"; +explode"
+                }
+                }
+            "##}
         );
         Ok(())
     }
