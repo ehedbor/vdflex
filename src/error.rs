@@ -12,6 +12,13 @@ pub enum Error {
     UnsupportedType(String),
     #[error("tried to deserialize multiple root keys (try `from_str_flat`?)")]
     MultipleRootKeys,
+    #[error("tried to serialize a sequence directly (try wrapping it in an object)")]
+    RootLevelSequence,
+    #[error("floating point value `{0}` is non-finite")]
+    NonFiniteFloat(f64),
+    #[error("key must be a string, but it was a `{0}`")]
+    KeyMustBeAString(String),
+    // TODO: remove this and replace it with something better
     #[error("unsupported document key `{0}`")]
     UnsupportedKey(String),
     #[error("a serde error occurred: {0}")]

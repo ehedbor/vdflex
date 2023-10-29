@@ -4,12 +4,12 @@ use std::io::{self, Write};
 ///
 /// By default, there is only one implementation: [PrettyFormatter].
 pub trait Formatter {
-    /// Called before writing an object (except the root). Writes a `{` to the specified writer.
+    /// Called before writing an object (including the root).
     fn begin_object<W>(&mut self, writer: &mut W) -> io::Result<()>
     where
         W: ?Sized + Write;
 
-    /// Called after every object (except the root). Writes a `}` to the specified writer.
+    /// Called after every object (including the root).
     fn end_object<W>(&mut self, writer: &mut W) -> io::Result<()>
     where
         W: ?Sized + Write;
@@ -34,13 +34,10 @@ pub trait Formatter {
     where
         W: ?Sized + Write;
 
-    /// Writes a line comment.
+    /// Writes a line comment. Must not be called while writing a key-value pair.
     fn write_line_comment<W>(&mut self, writer: &mut W, comment: &str) -> io::Result<()>
     where
-        W: ?Sized + Write,
-    {
-        write!(writer, "// {comment}\n")
-    }
+        W: ?Sized + Write;
 }
 
 /// Controls the formatting of curly brackets in KeyValues objects.
@@ -112,6 +109,8 @@ impl Default for FormatOpts {
     }
 }
 
+const ROOT_INDENT: i32 = -1;
+
 /// A [Formatter] that prints a human-readable version of the input.
 pub struct PrettyFormatter {
     opts: FormatOpts,
@@ -126,7 +125,7 @@ impl PrettyFormatter {
     pub fn with_opts(opts: FormatOpts) -> Self {
         Self {
             opts,
-            indent_level: 0,
+            indent_level: ROOT_INDENT,
         }
     }
 
@@ -136,7 +135,7 @@ impl PrettyFormatter {
 
     fn pop_indent(&mut self) {
         debug_assert!(
-            self.indent_level > 0,
+            self.indent_level > ROOT_INDENT,
             "indent was popped more than it was pushed!"
         );
         self.indent_level -= 1
@@ -146,6 +145,11 @@ impl PrettyFormatter {
     where
         W: ?Sized + Write,
     {
+        debug_assert!(
+            self.indent_level > ROOT_INDENT,
+            "tried to write indent outside of root object"
+        );
+
         for _ in 0..self.indent_level {
             writer.write_all(self.opts.indent.as_bytes())?;
         }
@@ -215,21 +219,24 @@ impl Formatter for PrettyFormatter {
     where
         W: ?Sized + Write,
     {
-        match self.opts.brace_style {
-            BraceStyle::Allman => {
-                writer.write_all(b"\n")?;
-                self.write_indent(writer)?;
-                writer.write_all(b"{")?;
-                self.push_indent();
-                writer.write_all(b"\n")?;
-            }
-            BraceStyle::KAndR => {
-                writer.write_all(b" {")?;
-                self.push_indent();
-                writer.write_all(b"\n")?;
+        if self.indent_level == ROOT_INDENT {
+            self.push_indent();
+        } else {
+            match self.opts.brace_style {
+                BraceStyle::Allman => {
+                    writer.write_all(b"\n")?;
+                    self.write_indent(writer)?;
+                    writer.write_all(b"{")?;
+                    self.push_indent();
+                    writer.write_all(b"\n")?;
+                }
+                BraceStyle::KAndR => {
+                    writer.write_all(b" {")?;
+                    self.push_indent();
+                    writer.write_all(b"\n")?;
+                }
             }
         }
-
         Ok(())
     }
 
@@ -238,8 +245,11 @@ impl Formatter for PrettyFormatter {
         W: ?Sized + Write,
     {
         self.pop_indent();
-        self.write_indent(writer)?;
-        writer.write_all(b"}\n")
+        if self.indent_level > ROOT_INDENT {
+            self.write_indent(writer)?;
+            writer.write_all(b"}\n")?;
+        }
+        Ok(())
     }
 
     fn write_key<W>(&mut self, writer: &mut W, key: &str) -> io::Result<()>
@@ -276,13 +286,23 @@ impl Formatter for PrettyFormatter {
     {
         write!(writer, " [{condition}]")
     }
+
+    fn write_line_comment<W>(&mut self, writer: &mut W, comment: &str) -> io::Result<()>
+    where
+        W: ?Sized + Write,
+    {
+        if self.indent_level > ROOT_INDENT {
+            self.write_indent(writer)?;
+        }
+        writeln!(writer, "// {comment}")
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
     use super::*;
     use indoc::indoc;
+    use std::error::Error;
     use std::io;
 
     fn write_simple_vmt<F, W>(f: &mut F, w: &mut W) -> io::Result<()>
@@ -290,15 +310,18 @@ mod tests {
         F: Formatter,
         W: ?Sized + Write,
     {
-        f.write_key(w, "LightmappedGeneric")?;
-
         f.begin_object(w)?;
         {
-            f.write_key(w, "$basetexture")?;
-            f.write_value(w, "coast\\shingle_01")?;
+            f.write_key(w, "LightmappedGeneric")?;
+            f.begin_object(w)?;
+            {
+                f.write_key(w, "$basetexture")?;
+                f.write_value(w, "coast\\shingle_01")?;
 
-            f.write_key(w, "$surfaceprop")?;
-            f.write_value(w, "gravel")?;
+                f.write_key(w, "$surfaceprop")?;
+                f.write_value(w, "gravel")?;
+            }
+            f.end_object(w)?;
         }
         f.end_object(w)?;
 
@@ -312,20 +335,24 @@ mod tests {
     {
         f.write_line_comment(w, "Test comment")?;
 
-        f.write_macro_key(w, "#base")?;
-        f.write_value(w, "panelBase.res")?;
-
-        f.write_key(w, "Resource/specificPanel.res")?;
         f.begin_object(w)?;
         {
-            f.write_key(w, "Greeting")?;
-            f.write_value(w, "Hello, \"Bob\"!")?;
+            f.write_macro_key(w, "#base")?;
+            f.write_value(w, "panelBase.res")?;
 
-            f.write_key(w, "Nested")?;
+            f.write_key(w, "Resource/specificPanel.res")?;
             f.begin_object(w)?;
             {
-                f.write_key(w, "Object")?;
-                f.write_value(w, "1")?;
+                f.write_key(w, "Greeting")?;
+                f.write_value(w, "Hello, \"Bob\"!")?;
+
+                f.write_key(w, "Nested")?;
+                f.begin_object(w)?;
+                {
+                    f.write_key(w, "Object")?;
+                    f.write_value(w, "1")?;
+                }
+                f.end_object(w)?;
             }
             f.end_object(w)?;
         }

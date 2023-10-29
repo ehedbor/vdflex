@@ -20,14 +20,14 @@ macro_rules! to_string_impl {
 
 macro_rules! to_writer_impl {
     (@nested $serializer:expr, ($key:expr, $value:expr)) => {{
-        let serializer = $serializer;
+        let mut serializer = $serializer;
         let mut root = HashMap::new();
         root.insert($key, $value);
-        root.serialize(serializer)
+        root.serialize(&mut serializer)
     }};
     (@flat $serializer:expr, $value:expr) => {{
-        let serializer = $serializer;
-        $value.serialize(serializer)
+        let mut serializer = $serializer;
+        $value.serialize(&mut serializer)
     }};
 }
 
@@ -316,7 +316,7 @@ mod tests {
     use indoc::indoc;
 
     #[derive(Serialize)]
-    #[serde(rename = "PascalCase")]
+    #[serde(rename_all = "PascalCase")]
     struct Cat {
         name: String,
         age: i32,
@@ -396,7 +396,7 @@ mod tests {
         assert_eq!(
             to_string_nested("Cat", &boots)?,
             indoc! {r#"
-                "Cat" 
+                "Cat"
                 {
                     "Name" "Boots"
                     "Age" "22"
