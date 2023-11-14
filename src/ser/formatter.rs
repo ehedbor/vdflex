@@ -185,7 +185,8 @@ impl PrettyFormatter {
         let need_quotes = match quoting {
             Quoting::Always => true,
             Quoting::WhenRequired => {
-                s.starts_with('[')
+                s.is_empty()
+                    || s.starts_with('[')
                     || s.contains(|c: char| c == '{' || c == '}' || c == '"' || c.is_whitespace())
             }
         };

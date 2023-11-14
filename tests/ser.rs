@@ -1,7 +1,10 @@
 use indoc::indoc;
 use serde::Serialize;
 use std::f32::consts::PI;
-use vdflex::ser::{to_string_nested_pretty, to_string_pretty, BraceStyle, FormatOpts, Quoting};
+use vdflex::ser::{
+    to_string, to_string_nested, to_string_nested_pretty, to_string_pretty, BraceStyle, FormatOpts,
+    Quoting,
+};
 use vdflex::{Error, Result};
 
 #[derive(Serialize)]
@@ -100,9 +103,27 @@ fn serialize_unit() -> Result<()> {
 }
 
 #[test]
-fn serialize_new_type() -> Result<()> {
+fn serialize_unit_struct() -> Result<()> {
     let opts = FormatOpts {
-        brace_style: BraceStyle::KAndR,
+        quote_keys: Quoting::WhenRequired,
+        quote_values: Quoting::WhenRequired,
+        ..Default::default()
+    };
+
+    assert_eq!(to_string_pretty(&UnitStruct, opts.clone())?, "\"\"");
+    assert_eq!(
+        to_string_nested_pretty("UnitStruct", &UnitStruct, opts.clone())?,
+        indoc! {r#"
+            UnitStruct ""
+        "#}
+    );
+
+    Ok(())
+}
+
+#[test]
+fn serialize_new_type_struct() -> Result<()> {
+    let opts = FormatOpts {
         quote_keys: Quoting::WhenRequired,
         quote_values: Quoting::WhenRequired,
         ..Default::default()
@@ -110,17 +131,78 @@ fn serialize_new_type() -> Result<()> {
 
     assert_eq!(to_string_pretty(&NewTypeStruct(100), opts.clone())?, "100");
     assert_eq!(
-        to_string_nested_pretty("NewTypeStruct", &(), opts.clone())?,
+        to_string_nested_pretty("NewTypeStruct", &NewTypeStruct(100), opts.clone())?,
         indoc! {r#"
             NewTypeStruct 100
         "#}
     );
 
-    assert_eq!(to_string_pretty(&UnitStruct, opts.clone())?, "\"\"");
+    Ok(())
+}
+
+#[test]
+fn serialize_tuple() -> Result<()> {
+    let tuple = ("foo", 123, false, 'c', None::<i32>);
+
+    assert!(matches!(to_string(&tuple), Err(Error::RootLevelSequence)));
     assert_eq!(
-        to_string_nested_pretty("Unit", &UnitStruct, opts.clone())?,
+        to_string_nested("value", &tuple)?,
         indoc! {r#"
-            Unit ""
+            "value" "foo"
+            "value" "123"
+            "value" "0"
+            "value" "c"
+            "value" ""
+        "#}
+    );
+
+    let tuple = ((), 1, (2,), ((3,),), (((4,),),), ((((5),),),));
+    assert!(matches!(to_string(&tuple), Err(Error::RootLevelSequence)));
+    assert_eq!(
+        to_string_nested_pretty(
+            "element",
+            &tuple,
+            FormatOpts {
+                quote_keys: Quoting::WhenRequired,
+                quote_values: Quoting::WhenRequired,
+                ..Default::default()
+            }
+        )?,
+        indoc! {r#"
+            element ""
+            element 1
+            element 2
+            element 3
+            element 4
+            element 5
+        "#}
+    );
+
+    Ok(())
+}
+
+#[test]
+fn serialize_tuple_struct() -> Result<()> {
+    let tuple_struct = TupleStruct(-36, true, String::from("{\"embeddedJson\":\"cursed\"}"));
+
+    assert!(matches!(
+        to_string(&tuple_struct),
+        Err(Error::RootLevelSequence)
+    ));
+    assert_eq!(
+        to_string_nested_pretty(
+            "value",
+            &tuple_struct,
+            FormatOpts {
+                quote_keys: Quoting::WhenRequired,
+                quote_values: Quoting::WhenRequired,
+                ..Default::default()
+            }
+        )?,
+        indoc! {r#"
+            value -36
+            value 1
+            value "{\"embeddedJson\":\"cursed\"}"
         "#}
     );
 
