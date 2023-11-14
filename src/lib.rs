@@ -22,17 +22,6 @@ pub type Object = indexmap::IndexMap<String, Vec<Value>>;
 #[cfg(not(feature = "preserve_order"))]
 pub type Object = std::collections::BTreeMap<String, Vec<Value>>;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum RootKind {
-    Nested(String),
-    Flattened,
-}
-
-/// Indicates that a type can be represented as a KeyValues document.
-pub trait KeyValuesRoot {
-    fn kind() -> RootKind;
-}
-
 /// Represents a KeyValues document.
 ///
 /// Note: A document typically consists of a single key-object pair. However, this library
@@ -54,12 +43,6 @@ impl KeyValues {
     /// Creates a KeyValues from a root object that may contain multiple keys.
     pub fn with_root(root: Object) -> Self {
         Self { root }
-    }
-}
-
-impl KeyValuesRoot for KeyValues {
-    fn kind() -> RootKind {
-        RootKind::Flattened
     }
 }
 

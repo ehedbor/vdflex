@@ -1,28 +1,18 @@
-use crate::{Error, KeyValuesRoot, Result, RootKind};
+use crate::Result;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
-/// Deserialize KeyValues text to some type `T`.
+/// Deserialize KeyValues text representing a flattened object to some type `T`.
 ///
 /// # Errors
 ///
 /// Deserialization can fail if the input is not valid KeyValues or does not match the structure
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
-pub fn from_str<'a, T>(s: &'a str) -> Result<T>
-where
-    T: Deserialize<'a> + KeyValuesRoot,
+pub fn from_str<'a, T>(_s: &'a str) -> Result<T>
+    where
+        T: Deserialize<'a>,
 {
-    match T::kind() {
-        RootKind::Nested(root_key) => {
-            let (key, value) = from_str_nested(s)?;
-            if key != root_key {
-                Err(Error::UnsupportedKey(key))
-            } else {
-                Ok(value)
-            }
-        }
-        RootKind::Flattened => from_str_flat(s),
-    }
+    todo!()
 }
 
 /// Deserialize KeyValues text representing a single key-value pair to the key and some type `T`.
@@ -38,42 +28,19 @@ where
     todo!()
 }
 
-/// Deserialize KeyValues text representing a flattened object to some type `T`.
-///
-/// # Errors
-///
-/// Deserialization can fail if the input is not valid KeyValues or does not match the structure
-/// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
-pub fn from_str_flat<'a, T>(_s: &'a str) -> Result<T>
-where
-    T: Deserialize<'a>,
-{
-    todo!()
-}
-
-/// Deserialize KeyValues text from a reader to some type `T`.
+/// Deserialize KeyValues text representing a flattened object from a reader to some type `T`.
 ///
 /// # Errors
 ///
 /// Deserialization can fail if the input is not valid KeyValues or does not match the structure
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
 #[cfg(feature = "std")]
-pub fn from_reader<R, T>(reader: R) -> Result<(String, T)>
-where
-    R: std::io::Read,
-    T: DeserializeOwned + KeyValuesRoot,
+pub fn from_reader<R, T>(_reader: R) -> Result<T>
+    where
+        R: std::io::Read,
+        T: DeserializeOwned,
 {
-    match T::kind() {
-        RootKind::Nested(root_key) => {
-            let (key, value) = from_reader_nested(reader)?;
-            if key != root_key {
-                Err(Error::UnsupportedKey(key))
-            } else {
-                Ok(value)
-            }
-        }
-        RootKind::Flattened => from_reader_flat(reader),
-    }
+    todo!()
 }
 
 /// Deserialize KeyValues text representing a single key-value pair from a reader to the key and
@@ -92,25 +59,10 @@ where
     todo!()
 }
 
-/// Deserialize KeyValues text representing a flattened object from a reader to some type `T`.
-///
-/// # Errors
-///
-/// Deserialization can fail if the input is not valid KeyValues or does not match the structure
-/// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
-#[cfg(feature = "std")]
-pub fn from_reader_flat<R, T>(_reader: R) -> Result<T>
-where
-    R: std::io::Read,
-    T: DeserializeOwned,
-{
-    todo!()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{KeyValues, Value};
+    use crate::{KeyValues, Value, Error};
     use indoc::indoc;
     use serde::Deserialize;
 
@@ -130,7 +82,7 @@ mod tests {
 
     #[test]
     fn de_simple_key_values() {
-        let vdf: KeyValues = from_str_flat(SIMPLE_KEYVALUES).unwrap();
+        let vdf: KeyValues = from_str(SIMPLE_KEYVALUES).unwrap();
 
         assert_eq!(vdf.root.len(), 1);
         assert_eq!(vdf.root["foo"].len(), 1);
@@ -189,12 +141,6 @@ mod tests {
         dogs: Dogs,
     }
 
-    impl KeyValuesRoot for Animals {
-        fn kind() -> RootKind {
-            RootKind::Flattened
-        }
-    }
-
     #[derive(Debug, Deserialize, PartialEq)]
     struct Cats {
         #[serde(rename = "Cat")]
@@ -229,7 +175,7 @@ mod tests {
         assert!(matches!(animals, Err(Error::MultipleRootKeys)));
 
         let animals: Animals = from_str(ANIMALS)?;
-        let animals2: Animals = from_str_flat(ANIMALS)?;
+        let animals2: Animals = from_str(ANIMALS)?;
         assert_eq!(animals, animals2);
         assert_eq!(
             animals,

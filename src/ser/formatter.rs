@@ -86,23 +86,23 @@ pub enum Quoting {
     ///
     /// 1. The string contains whitespace.
     /// 2. The string contains one of the control characters (`{`, `}`, or `"`).
-    /// 3. The string begins with '[' (which normally starts a conditional).
+    /// 3. The string begins with `[` (which normally starts a conditional).
     WhenRequired,
 }
 
 #[derive(Clone, Debug)]
 pub struct FormatOpts {
-    /// The sequence of characters to print for each indent level.
+    /// The sequence of characters to print for each indent level (default: 4 spaces).
     pub indent: String,
-    /// The separator between keys and values.
+    /// The separator between keys and values (default: 1 space).
     pub separator: String,
-    /// How to format braces.
+    /// How to format braces (default: [BraceStyle::Allman]).
     pub brace_style: BraceStyle,
-    /// How object keys should be quoted.
+    /// How object keys should be quoted (default: [Quoting::Always]).
     pub quote_keys: Quoting,
-    /// How macro keys should be quoted.
+    /// How macro keys should be quoted (default: [Quoting::Always]).
     pub quote_macro_keys: Quoting,
-    /// How object/macro values should be quoted.
+    /// How object/macro values should be quoted (default: [Quoting::Always]).
     pub quote_values: Quoting,
 }
 

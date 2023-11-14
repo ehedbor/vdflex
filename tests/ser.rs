@@ -1,11 +1,8 @@
 use indoc::indoc;
 use serde::Serialize;
 use std::f32::consts::PI;
-use vdflex::ser::{
-    to_string, to_string_flat, to_string_flat_pretty, to_string_nested_pretty, BraceStyle,
-    FormatOpts, Quoting,
-};
-use vdflex::{Error, KeyValuesRoot, Result, RootKind};
+use vdflex::ser::{to_string_nested_pretty, to_string_pretty, BraceStyle, FormatOpts, Quoting};
+use vdflex::{Error, Result};
 
 #[derive(Serialize)]
 struct UnitStruct;
@@ -39,24 +36,21 @@ fn serialize_root_level_primitives() -> Result<()> {
         ..Default::default()
     };
 
-    // TODO: Is this really the right API? I didn't consider that you could serialize things that
-    //     DON'T represent an entire KeyValues document.
-    //     ...It's a little strange that you can, actually.
-    assert_eq!(to_string_flat_pretty(&false, opts.clone())?, "0");
-    assert_eq!(to_string_flat_pretty(&true, opts.clone())?, "1");
-    assert_eq!(to_string_flat_pretty(&17u8, opts.clone())?, "17");
-    assert_eq!(to_string_flat_pretty(&362i16, opts.clone())?, "362");
-    assert_eq!(to_string_flat_pretty(&-843217i32, opts.clone())?, "-843217");
-    assert_eq!(to_string_flat_pretty(&PI, opts.clone())?, PI.to_string());
+    assert_eq!(to_string_pretty(&false, opts.clone())?, "0");
+    assert_eq!(to_string_pretty(&true, opts.clone())?, "1");
+    assert_eq!(to_string_pretty(&17u8, opts.clone())?, "17");
+    assert_eq!(to_string_pretty(&362i16, opts.clone())?, "362");
+    assert_eq!(to_string_pretty(&-843217i32, opts.clone())?, "-843217");
+    assert_eq!(to_string_pretty(&PI, opts.clone())?, PI.to_string());
     assert_eq!(
-        to_string_flat_pretty(&u64::MAX, opts.clone())?,
+        to_string_pretty(&u64::MAX, opts.clone())?,
         "18446744073709551615"
     );
-    assert_eq!(to_string_flat_pretty(&'q', opts.clone())?, "q");
-    assert_eq!(to_string_flat_pretty(&'\t', opts.clone())?, r#""\t""#);
-    assert_eq!(to_string_flat_pretty(&"simple", opts.clone())?, "simple");
+    assert_eq!(to_string_pretty(&'q', opts.clone())?, "q");
+    assert_eq!(to_string_pretty(&'\t', opts.clone())?, r#""\t""#);
+    assert_eq!(to_string_pretty(&"simple", opts.clone())?, "simple");
     assert_eq!(
-        to_string_flat_pretty(&"Hello, world!", opts.clone())?,
+        to_string_pretty(&"Hello, world!", opts.clone())?,
         "\"Hello, world!\""
     );
 
@@ -70,12 +64,9 @@ fn serialize_option() -> Result<()> {
         ..Default::default()
     };
 
-    assert_eq!(to_string_flat_pretty(&None::<i32>, opts.clone())?, "");
-    assert_eq!(to_string_flat_pretty(&Some(42), opts.clone())?, "42");
-    assert_eq!(
-        to_string_flat_pretty(&Some("hello"), opts.clone())?,
-        "hello"
-    );
+    assert_eq!(to_string_pretty(&None::<i32>, opts.clone())?, "");
+    assert_eq!(to_string_pretty(&Some(42), opts.clone())?, "42");
+    assert_eq!(to_string_pretty(&Some("hello"), opts.clone())?, "hello");
 
     Ok(())
 }
@@ -89,7 +80,7 @@ fn serialize_unit() -> Result<()> {
         ..Default::default()
     };
 
-    assert_eq!(to_string_flat_pretty(&(), opts.clone())?, "\"\"");
+    assert_eq!(to_string_pretty(&(), opts.clone())?, "\"\"");
     assert_eq!(
         to_string_nested_pretty("Unit", &(), opts.clone())?,
         indoc! {r#"
@@ -97,7 +88,7 @@ fn serialize_unit() -> Result<()> {
         "#}
     );
 
-    assert_eq!(to_string_flat_pretty(&UnitStruct, opts.clone())?, "\"\"");
+    assert_eq!(to_string_pretty(&UnitStruct, opts.clone())?, "\"\"");
     assert_eq!(
         to_string_nested_pretty("Unit", &UnitStruct, opts.clone())?,
         indoc! {r#"
@@ -117,7 +108,7 @@ fn serialize_new_type() -> Result<()> {
         ..Default::default()
     };
 
-    assert_eq!(to_string_flat_pretty(&NewTypeStruct(100), opts.clone())?, "100");
+    assert_eq!(to_string_pretty(&NewTypeStruct(100), opts.clone())?, "100");
     assert_eq!(
         to_string_nested_pretty("NewTypeStruct", &(), opts.clone())?,
         indoc! {r#"
@@ -125,7 +116,7 @@ fn serialize_new_type() -> Result<()> {
         "#}
     );
 
-    assert_eq!(to_string_flat_pretty(&UnitStruct, opts.clone())?, "\"\"");
+    assert_eq!(to_string_pretty(&UnitStruct, opts.clone())?, "\"\"");
     assert_eq!(
         to_string_nested_pretty("Unit", &UnitStruct, opts.clone())?,
         indoc! {r#"
