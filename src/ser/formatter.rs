@@ -125,11 +125,7 @@ pub struct PrettyFormatter {
 }
 
 impl PrettyFormatter {
-    pub fn new() -> Self {
-        Self::with_opts(FormatOpts::default())
-    }
-
-    pub fn with_opts(opts: FormatOpts) -> Self {
+    pub fn new(opts: FormatOpts) -> Self {
         Self {
             opts,
             elements: Vec::new(),
@@ -216,7 +212,7 @@ impl PrettyFormatter {
 
 impl Default for PrettyFormatter {
     fn default() -> Self {
-        Self::new()
+        Self::new(FormatOpts::default())
     }
 }
 
@@ -547,7 +543,7 @@ mod tests {
 
     #[test]
     fn simple() -> Result<(), Box<dyn Error>> {
-        let mut f = PrettyFormatter::with_opts(FormatOpts {
+        let mut f = PrettyFormatter::new(FormatOpts {
             indent: "    ".to_string(),
             brace_style: BraceStyle::Allman,
             quote_keys: Quoting::Always,
@@ -572,7 +568,7 @@ mod tests {
 
     #[test]
     fn simple_quote_keys() -> Result<(), Box<dyn Error>> {
-        let mut f = PrettyFormatter::with_opts(FormatOpts {
+        let mut f = PrettyFormatter::new(FormatOpts {
             indent: "    ".to_string(),
             brace_style: BraceStyle::Allman,
             quote_keys: Quoting::Always,
@@ -597,7 +593,7 @@ mod tests {
 
     #[test]
     fn simple_quote_values() -> Result<(), Box<dyn Error>> {
-        let mut f = PrettyFormatter::with_opts(FormatOpts {
+        let mut f = PrettyFormatter::new(FormatOpts {
             indent: "    ".to_string(),
             brace_style: BraceStyle::Allman,
             quote_keys: Quoting::WhenRequired,
@@ -622,7 +618,7 @@ mod tests {
 
     #[test]
     fn simple_yaml() -> Result<(), Box<dyn Error>> {
-        let mut f = PrettyFormatter::with_opts(FormatOpts {
+        let mut f = PrettyFormatter::new(FormatOpts {
             indent: "  ".to_string(),
             separator: ": ".to_string(),
             brace_style: BraceStyle::KAndR,
@@ -649,7 +645,7 @@ mod tests {
 
     #[test]
     fn simple_knr() -> Result<(), Box<dyn Error>> {
-        let mut f = PrettyFormatter::with_opts(FormatOpts {
+        let mut f = PrettyFormatter::new(FormatOpts {
             indent: "  ".to_string(),
             brace_style: BraceStyle::KAndR,
             quote_keys: Quoting::Always,
@@ -673,7 +669,7 @@ mod tests {
 
     #[test]
     fn nested() -> Result<(), Box<dyn Error>> {
-        let mut f = PrettyFormatter::with_opts(FormatOpts {
+        let mut f = PrettyFormatter::new(FormatOpts {
             indent: "    ".to_string(),
             separator: " ".to_string(),
             brace_style: BraceStyle::Allman,
@@ -704,7 +700,7 @@ mod tests {
 
     #[test]
     fn nested_quote_keys() -> Result<(), Box<dyn Error>> {
-        let mut f = PrettyFormatter::with_opts(FormatOpts {
+        let mut f = PrettyFormatter::new(FormatOpts {
             indent: "    ".to_string(),
             separator: " ".to_string(),
             brace_style: BraceStyle::Allman,
@@ -736,7 +732,7 @@ mod tests {
 
     #[test]
     fn nested_knr() -> Result<(), Box<dyn Error>> {
-        let mut f = PrettyFormatter::with_opts(FormatOpts {
+        let mut f = PrettyFormatter::new(FormatOpts {
             indent: "  ".to_string(),
             separator: " ".to_string(),
             brace_style: BraceStyle::KAndR,
@@ -765,7 +761,7 @@ mod tests {
 
     #[test]
     fn nested_tab_stops() -> Result<(), Box<dyn Error>> {
-        let mut f = PrettyFormatter::with_opts(FormatOpts {
+        let mut f = PrettyFormatter::new(FormatOpts {
             indent: "\t".to_string(),
             separator: "\t\t".to_string(),
             brace_style: BraceStyle::KAndR,
@@ -793,7 +789,7 @@ mod tests {
 
     #[test]
     fn advanced() -> Result<(), Box<dyn Error>> {
-        let mut f = PrettyFormatter::with_opts(FormatOpts {
+        let mut f = PrettyFormatter::new(FormatOpts {
             indent: "    ".to_string(),
             separator: "  ".to_string(),
             brace_style: BraceStyle::Allman,
@@ -855,7 +851,7 @@ mod tests {
 
     #[test]
     fn advanced_compact() -> Result<(), Box<dyn Error>> {
-        let mut f = PrettyFormatter::with_opts(FormatOpts {
+        let mut f = PrettyFormatter::new(FormatOpts {
             indent: "".to_string(),
             separator: " ".to_string(),
             brace_style: BraceStyle::KAndR,

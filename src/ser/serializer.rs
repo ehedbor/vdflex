@@ -1,4 +1,4 @@
-use super::formatter::{FormatOpts, Formatter, PrettyFormatter};
+use super::formatter::{Formatter, PrettyFormatter};
 use crate::{Error, Result};
 use serde::ser::Impossible;
 use serde::Serialize;
@@ -11,20 +11,9 @@ pub struct Serializer<W, F = PrettyFormatter> {
     key_stack: Vec<Cow<'static, str>>,
 }
 
-impl<W: Write> Serializer<W, PrettyFormatter> {
-    /// Creates a new KeyValues serializer using an appropriate formatter.
-    pub fn new(writer: W) -> Self {
-        Self::custom(writer, PrettyFormatter::new())
-    }
-
-    /// Creates a new KeyValues serializer using a `PrettyFormatter` with the given options.
-    pub fn pretty(writer: W, opts: FormatOpts) -> Self {
-        Self::custom(writer, PrettyFormatter::with_opts(opts))
-    }
-}
-
 impl<W: Write, F: Formatter> Serializer<W, F> {
-    pub fn custom(writer: W, formatter: F) -> Self {
+    /// Creates a new KeyValues serializer using the given `writer` and `formatter`.
+    pub fn new(writer: W, formatter: F) -> Self {
         Self {
             writer,
             formatter,

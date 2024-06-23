@@ -9,183 +9,121 @@ use std::io::Write;
 pub use formatter::{BraceStyle, FormatOpts, Formatter, PrettyFormatter, Quoting};
 pub use serializer::Serializer;
 
-macro_rules! to_string_impl {
-    ($to_writer:ident, $($arg:expr),* ) => {{
-        let mut writer = Vec::new();
-        $to_writer(&mut writer, $($arg),*)?;
-        // Safety: given valid utf-8 as input, the writer will never produce invalid utf-8
-        unsafe { Ok(String::from_utf8_unchecked(writer)) }
-    }};
-}
-
-macro_rules! to_writer_impl {
-    (@nested $serializer:expr, ($key:expr, $value:expr)) => {{
-        let mut serializer = $serializer;
-        let mut root = HashMap::new();
-        root.insert($key, $value);
-        root.serialize(&mut serializer)
-    }};
-    (@flat $serializer:expr, $value:expr) => {{
-        let mut serializer = $serializer;
-        $value.serialize(&mut serializer)
-    }};
-}
-
-/// Serialize the given value as flattened KeyValues text.
+/// Serialize the given value as a KeyValues value.
 ///
 /// # Errors
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
+#[inline(always)]
 pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
-    to_string_impl!(to_writer, value)
+    to_string_pretty(value, PrettyFormatter::default())
 }
 
-/// Serialize the given value as flattened, pretty-printed KeyValues text.
+/// Serialize the given value as a KeyValues value using a custom formatter.
 ///
 /// # Errors
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_string_pretty<T: ?Sized + Serialize>(value: &T, opts: FormatOpts) -> Result<String> {
-    to_string_impl!(to_writer_pretty, value, opts)
-}
-
-/// Serialize the given value as flattened KeyValues text with a custom formatter.
-///
-/// # Errors
-///
-/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
-/// of `Serialize` decides to fail.
-pub fn to_string_custom<T: ?Sized + Serialize, F: Formatter>(
+pub fn to_string_pretty<T: ?Sized + Serialize, F: Formatter>(
     value: &T,
     formatter: F,
 ) -> Result<String> {
-    to_string_impl!(to_writer_custom, value, formatter)
+    let mut writer = Vec::new();
+    to_writer_pretty(&mut writer, value, formatter)?;
+    // Safety: given valid utf-8 as input, the writer will never produce invalid utf-8
+    unsafe { Ok(String::from_utf8_unchecked(writer)) }
 }
 
-/// Serialize the given value as KeyValues text using a specified root key.
+/// Serialize the given value as a KeyValues object with the specified root key.
 ///
 /// # Errors
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_string_nested<T: ?Sized + Serialize>(key: &str, value: &T) -> Result<String> {
-    to_string_impl!(to_writer_nested, key, value)
+#[inline(always)]
+pub fn kv_to_string<T: ?Sized + Serialize>(key: &str, value: &T) -> Result<String> {
+    kv_to_string_pretty(key, value, PrettyFormatter::default())
 }
 
-/// Serialize the given value as pretty-printed KeyValues text using a specified root key.
+/// Serialize the given value as a KeyValues object with the specified root key using a custom
+/// formatter.
 ///
 /// # Errors
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_string_nested_pretty<T: ?Sized + Serialize>(
-    key: &str,
-    value: &T,
-    opts: FormatOpts,
-) -> Result<String> {
-    to_string_impl!(to_writer_nested_pretty, key, value, opts)
-}
-
-/// Serialize the given value as KeyValues text with a custom formatter using a specified root key.
-///
-/// # Errors
-///
-/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
-/// of `Serialize` decides to fail.
-pub fn to_string_nested_custom<T: ?Sized + Serialize, F: Formatter>(
+pub fn kv_to_string_pretty<T: ?Sized + Serialize, F: Formatter>(
     key: &str,
     value: &T,
     formatter: F,
 ) -> Result<String> {
-    to_string_impl!(to_writer_nested_custom, key, value, formatter)
+    let mut writer = Vec::new();
+    kv_to_writer_pretty(&mut writer, key, value, formatter)?;
+    // Safety: given valid utf-8 as input, the writer will never produce invalid utf-8
+    unsafe { Ok(String::from_utf8_unchecked(writer)) }
 }
 
-/// Serialize the given value as flattened KeyValues into the specified writer.
+/// Serialize the given value as a KeyValues value into the specified writer.
 ///
 /// # Errors
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-#[inline]
+#[inline(always)]
 pub fn to_writer<W: Write, T: ?Sized + Serialize>(writer: W, value: &T) -> Result<()> {
-    to_writer_impl!(@flat Serializer::new(writer), value)
+    to_writer_pretty(writer, value, PrettyFormatter::default())
 }
 
-/// Serialize the given value as flattened, pretty-printed KeyValues into the specified writer.
+/// Serialize the given value as a KeyValues value into the specified writer using a custom formatter.
 ///
 /// # Errors
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_writer_pretty<W: Write, T: ?Sized + Serialize>(
+pub fn to_writer_pretty<W: Write, T: ?Sized + Serialize, F: Formatter>(
     writer: W,
     value: &T,
-    opts: FormatOpts,
+    formatter: F,
 ) -> Result<()> {
-    to_writer_impl!(@flat Serializer::pretty(writer, opts), value)
+    let mut serializer = Serializer::new(writer, formatter);
+    value.serialize(&mut serializer)
 }
 
-/// Serialize the given value as flattened KeyValues with a custom formatter into the specified
+/// Serialize the given value as a KeyValues object with the specified root key into the specified
 /// writer.
 ///
 /// # Errors
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_writer_custom<W: Write, T: ?Sized + Serialize, F: Formatter>(
-    writer: W,
-    value: &T,
-    formatter: F,
-) -> Result<()> {
-    to_writer_impl!(@flat Serializer::custom(writer, formatter), value)
-}
-
-/// Serialize the given value into the specified writer with a specified root key.
-///
-/// # Errors
-///
-/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
-/// of `Serialize` decides to fail.
-pub fn to_writer_nested<W: Write, T: ?Sized + Serialize>(
+#[inline(always)]
+pub fn kv_to_writer<W: Write, T: ?Sized + Serialize>(
     writer: W,
     key: &str,
     value: &T,
 ) -> Result<()> {
-    to_writer_impl!(@nested Serializer::new(writer), (key, value))
+    kv_to_writer_pretty(writer, key, value, PrettyFormatter::default())
 }
 
-/// Serialize the given value as pretty-printed KeyValues into the specified writer with a
-/// specified root key.
+/// Serialize the given value as a KeyValues object with the specified root key into the specified
+/// writer using a custom formatter.
 ///
 /// # Errors
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_writer_nested_pretty<W: Write, T: ?Sized + Serialize>(
-    writer: W,
-    key: &str,
-    value: &T,
-    opts: FormatOpts,
-) -> Result<()> {
-    to_writer_impl!(@nested Serializer::pretty(writer, opts), (key, value))
-}
-
-/// Serialize the given value as KeyValues with a custom formatter into the specified writer using a
-/// specified root key.
-///
-/// # Errors
-///
-/// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
-/// of `Serialize` decides to fail.
-pub fn to_writer_nested_custom<W: Write, T: ?Sized + Serialize, F: Formatter>(
+pub fn kv_to_writer_pretty<W: Write, T: ?Sized + Serialize, F: Formatter>(
     writer: W,
     key: &str,
     value: &T,
     formatter: F,
 ) -> Result<()> {
-    to_writer_impl!(@nested Serializer::custom(writer, formatter), (key, value))
+    let mut serializer = Serializer::new(writer, formatter);
+    let mut root = HashMap::with_capacity(1);
+    root.insert(key, value);
+    root.serialize(&mut serializer)
 }
 
 #[cfg(test)]
@@ -236,53 +174,7 @@ mod tests {
     }
 
     #[test]
-    fn ser_simple() -> Result<()> {
-        let boots = Cat {
-            name: String::from("Boots"),
-            age: 22,
-            likes_catnip: true,
-        };
-
-        assert_eq!(
-            to_string_nested("Cat", &boots)?,
-            indoc! {r#"
-                "Cat"
-                {
-                    "Name" "Boots"
-                    "Age" "22"
-                    "LikesCatnip" "1"
-                }
-            "#}
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn ser_simple_nested() -> Result<()> {
-        let boots = Cat {
-            name: String::from("Boots"),
-            age: 22,
-            likes_catnip: true,
-        };
-
-        assert_eq!(
-            to_string_nested("Cat", &boots)?,
-            indoc! {r#"
-                "Cat"
-                {
-                    "Name" "Boots"
-                    "Age" "22"
-                    "LikesCatnip" "1"
-                }
-            "#}
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn ser_simple_flat() -> Result<()> {
+    fn ser_value() -> Result<()> {
         let boots = Cat {
             name: String::from("Boots"),
             age: 22,
@@ -302,7 +194,30 @@ mod tests {
     }
 
     #[test]
-    fn ser_simple_pretty() -> Result<()> {
+    fn ser_key_value() -> Result<()> {
+        let boots = Cat {
+            name: String::from("Boots"),
+            age: 22,
+            likes_catnip: true,
+        };
+
+        assert_eq!(
+            kv_to_string("Cat", &boots)?,
+            indoc! {r#"
+                "Cat"
+                {
+                    "Name" "Boots"
+                    "Age" "22"
+                    "LikesCatnip" "1"
+                }
+            "#}
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn ser_key_value_pretty() -> Result<()> {
         let boots = Cat {
             name: String::from("Boots"),
             age: 22,
@@ -316,7 +231,7 @@ mod tests {
         };
 
         assert_eq!(
-            to_string_nested_pretty("Cat", &boots, opts)?,
+            kv_to_string_pretty("Cat", &boots, PrettyFormatter::new(opts))?,
             indoc! {r#"
                 "Cat" {
                   "Name" "Boots"

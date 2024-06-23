@@ -2,8 +2,8 @@ use indoc::indoc;
 use serde::Serialize;
 use std::f32::consts::PI;
 use vdflex::ser::{
-    to_string, to_string_nested, to_string_nested_pretty, to_string_pretty, BraceStyle, FormatOpts,
-    Quoting,
+    kv_to_string, kv_to_string_pretty, to_string, to_string_pretty, BraceStyle, FormatOpts,
+    PrettyFormatter, Quoting,
 };
 use vdflex::{Error, Result};
 
@@ -39,21 +39,48 @@ fn serialize_root_level_primitives() -> Result<()> {
         ..Default::default()
     };
 
-    assert_eq!(to_string_pretty(&false, opts.clone())?, "0");
-    assert_eq!(to_string_pretty(&true, opts.clone())?, "1");
-    assert_eq!(to_string_pretty(&17u8, opts.clone())?, "17");
-    assert_eq!(to_string_pretty(&362i16, opts.clone())?, "362");
-    assert_eq!(to_string_pretty(&-843217i32, opts.clone())?, "-843217");
-    assert_eq!(to_string_pretty(&PI, opts.clone())?, PI.to_string());
     assert_eq!(
-        to_string_pretty(&u64::MAX, opts.clone())?,
+        to_string_pretty(&false, PrettyFormatter::new(opts.clone()))?,
+        "0"
+    );
+    assert_eq!(
+        to_string_pretty(&true, PrettyFormatter::new(opts.clone()))?,
+        "1"
+    );
+    assert_eq!(
+        to_string_pretty(&17u8, PrettyFormatter::new(opts.clone()))?,
+        "17"
+    );
+    assert_eq!(
+        to_string_pretty(&362i16, PrettyFormatter::new(opts.clone()))?,
+        "362"
+    );
+    assert_eq!(
+        to_string_pretty(&-843217i32, PrettyFormatter::new(opts.clone()))?,
+        "-843217"
+    );
+    assert_eq!(
+        to_string_pretty(&PI, PrettyFormatter::new(opts.clone()))?,
+        PI.to_string()
+    );
+    assert_eq!(
+        to_string_pretty(&u64::MAX, PrettyFormatter::new(opts.clone()))?,
         "18446744073709551615"
     );
-    assert_eq!(to_string_pretty(&'q', opts.clone())?, "q");
-    assert_eq!(to_string_pretty(&'\t', opts.clone())?, r#""\t""#);
-    assert_eq!(to_string_pretty(&"simple", opts.clone())?, "simple");
     assert_eq!(
-        to_string_pretty(&"Hello, world!", opts.clone())?,
+        to_string_pretty(&'q', PrettyFormatter::new(opts.clone()))?,
+        "q"
+    );
+    assert_eq!(
+        to_string_pretty(&'\t', PrettyFormatter::new(opts.clone()))?,
+        r#""\t""#
+    );
+    assert_eq!(
+        to_string_pretty(&"simple", PrettyFormatter::new(opts.clone()))?,
+        "simple"
+    );
+    assert_eq!(
+        to_string_pretty(&"Hello, world!", PrettyFormatter::new(opts.clone()))?,
         "\"Hello, world!\""
     );
 
@@ -67,9 +94,18 @@ fn serialize_option() -> Result<()> {
         ..Default::default()
     };
 
-    assert_eq!(to_string_pretty(&None::<i32>, opts.clone())?, "");
-    assert_eq!(to_string_pretty(&Some(42), opts.clone())?, "42");
-    assert_eq!(to_string_pretty(&Some("hello"), opts.clone())?, "hello");
+    assert_eq!(
+        to_string_pretty(&None::<i32>, PrettyFormatter::new(opts.clone()))?,
+        ""
+    );
+    assert_eq!(
+        to_string_pretty(&Some(42), PrettyFormatter::new(opts.clone()))?,
+        "42"
+    );
+    assert_eq!(
+        to_string_pretty(&Some("hello"), PrettyFormatter::new(opts.clone()))?,
+        "hello"
+    );
 
     Ok(())
 }
@@ -83,17 +119,23 @@ fn serialize_unit() -> Result<()> {
         ..Default::default()
     };
 
-    assert_eq!(to_string_pretty(&(), opts.clone())?, "\"\"");
     assert_eq!(
-        to_string_nested_pretty("Unit", &(), opts.clone())?,
+        to_string_pretty(&(), PrettyFormatter::new(opts.clone()))?,
+        "\"\""
+    );
+    assert_eq!(
+        kv_to_string_pretty("Unit", &(), PrettyFormatter::new(opts.clone()))?,
         indoc! {r#"
             Unit ""
         "#}
     );
 
-    assert_eq!(to_string_pretty(&UnitStruct, opts.clone())?, "\"\"");
     assert_eq!(
-        to_string_nested_pretty("Unit", &UnitStruct, opts.clone())?,
+        to_string_pretty(&UnitStruct, PrettyFormatter::new(opts.clone()))?,
+        "\"\""
+    );
+    assert_eq!(
+        kv_to_string_pretty("Unit", &UnitStruct, PrettyFormatter::new(opts.clone()))?,
         indoc! {r#"
             Unit ""
         "#}
@@ -110,9 +152,16 @@ fn serialize_unit_struct() -> Result<()> {
         ..Default::default()
     };
 
-    assert_eq!(to_string_pretty(&UnitStruct, opts.clone())?, "\"\"");
     assert_eq!(
-        to_string_nested_pretty("UnitStruct", &UnitStruct, opts.clone())?,
+        to_string_pretty(&UnitStruct, PrettyFormatter::new(opts.clone()))?,
+        "\"\""
+    );
+    assert_eq!(
+        kv_to_string_pretty(
+            "UnitStruct",
+            &UnitStruct,
+            PrettyFormatter::new(opts.clone())
+        )?,
         indoc! {r#"
             UnitStruct ""
         "#}
@@ -129,9 +178,16 @@ fn serialize_new_type_struct() -> Result<()> {
         ..Default::default()
     };
 
-    assert_eq!(to_string_pretty(&NewTypeStruct(100), opts.clone())?, "100");
     assert_eq!(
-        to_string_nested_pretty("NewTypeStruct", &NewTypeStruct(100), opts.clone())?,
+        to_string_pretty(&NewTypeStruct(100), PrettyFormatter::new(opts.clone()))?,
+        "100"
+    );
+    assert_eq!(
+        kv_to_string_pretty(
+            "NewTypeStruct",
+            &NewTypeStruct(100),
+            PrettyFormatter::new(opts.clone())
+        )?,
         indoc! {r#"
             NewTypeStruct 100
         "#}
@@ -146,7 +202,7 @@ fn serialize_tuple() -> Result<()> {
 
     assert!(matches!(to_string(&tuple), Err(Error::RootLevelSequence)));
     assert_eq!(
-        to_string_nested("value", &tuple)?,
+        kv_to_string("value", &tuple)?,
         indoc! {r#"
             "value" "foo"
             "value" "123"
@@ -159,14 +215,14 @@ fn serialize_tuple() -> Result<()> {
     let tuple = ((), 1, (2,), ((3,),), (((4,),),), ((((5),),),));
     assert!(matches!(to_string(&tuple), Err(Error::RootLevelSequence)));
     assert_eq!(
-        to_string_nested_pretty(
+        kv_to_string_pretty(
             "element",
             &tuple,
-            FormatOpts {
+            PrettyFormatter::new(FormatOpts {
                 quote_keys: Quoting::WhenRequired,
                 quote_values: Quoting::WhenRequired,
                 ..Default::default()
-            }
+            }),
         )?,
         indoc! {r#"
             element ""
@@ -190,14 +246,14 @@ fn serialize_tuple_struct() -> Result<()> {
         Err(Error::RootLevelSequence)
     ));
     assert_eq!(
-        to_string_nested_pretty(
+        kv_to_string_pretty(
             "value",
             &tuple_struct,
-            FormatOpts {
+            PrettyFormatter::new(FormatOpts {
                 quote_keys: Quoting::WhenRequired,
                 quote_values: Quoting::WhenRequired,
                 ..Default::default()
-            }
+            })
         )?,
         indoc! {r#"
             value -36
