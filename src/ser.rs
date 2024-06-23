@@ -37,10 +37,7 @@ macro_rules! to_writer_impl {
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_string<T>(value: &T) -> Result<String>
-    where
-        T: ?Sized + Serialize,
-{
+pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
     to_string_impl!(to_writer, value)
 }
 
@@ -50,10 +47,7 @@ pub fn to_string<T>(value: &T) -> Result<String>
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_string_pretty<T>(value: &T, opts: FormatOpts) -> Result<String>
-    where
-        T: ?Sized + Serialize,
-{
+pub fn to_string_pretty<T: ?Sized + Serialize>(value: &T, opts: FormatOpts) -> Result<String> {
     to_string_impl!(to_writer_pretty, value, opts)
 }
 
@@ -63,11 +57,10 @@ pub fn to_string_pretty<T>(value: &T, opts: FormatOpts) -> Result<String>
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_string_custom<T, F>(value: &T, formatter: F) -> Result<String>
-    where
-        T: ?Sized + Serialize,
-        F: Formatter,
-{
+pub fn to_string_custom<T: ?Sized + Serialize, F: Formatter>(
+    value: &T,
+    formatter: F,
+) -> Result<String> {
     to_string_impl!(to_writer_custom, value, formatter)
 }
 
@@ -77,10 +70,7 @@ pub fn to_string_custom<T, F>(value: &T, formatter: F) -> Result<String>
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_string_nested<T>(key: &str, value: &T) -> Result<String>
-where
-    T: ?Sized + Serialize,
-{
+pub fn to_string_nested<T: ?Sized + Serialize>(key: &str, value: &T) -> Result<String> {
     to_string_impl!(to_writer_nested, key, value)
 }
 
@@ -90,10 +80,11 @@ where
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_string_nested_pretty<T>(key: &str, value: &T, opts: FormatOpts) -> Result<String>
-where
-    T: ?Sized + Serialize,
-{
+pub fn to_string_nested_pretty<T: ?Sized + Serialize>(
+    key: &str,
+    value: &T,
+    opts: FormatOpts,
+) -> Result<String> {
     to_string_impl!(to_writer_nested_pretty, key, value, opts)
 }
 
@@ -103,11 +94,11 @@ where
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_string_nested_custom<T, F>(key: &str, value: &T, formatter: F) -> Result<String>
-where
-    T: ?Sized + Serialize,
-    F: Formatter,
-{
+pub fn to_string_nested_custom<T: ?Sized + Serialize, F: Formatter>(
+    key: &str,
+    value: &T,
+    formatter: F,
+) -> Result<String> {
     to_string_impl!(to_writer_nested_custom, key, value, formatter)
 }
 
@@ -118,11 +109,7 @@ where
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
 #[inline]
-pub fn to_writer<W, T>(writer: W, value: &T) -> Result<()>
-    where
-        W: Write,
-        T: ?Sized + Serialize,
-{
+pub fn to_writer<W: Write, T: ?Sized + Serialize>(writer: W, value: &T) -> Result<()> {
     to_writer_impl!(@flat Serializer::new(writer), value)
 }
 
@@ -132,11 +119,11 @@ pub fn to_writer<W, T>(writer: W, value: &T) -> Result<()>
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_writer_pretty<W, T>(writer: W, value: &T, opts: FormatOpts) -> Result<()>
-    where
-        W: Write,
-        T: ?Sized + Serialize,
-{
+pub fn to_writer_pretty<W: Write, T: ?Sized + Serialize>(
+    writer: W,
+    value: &T,
+    opts: FormatOpts,
+) -> Result<()> {
     to_writer_impl!(@flat Serializer::pretty(writer, opts), value)
 }
 
@@ -147,12 +134,11 @@ pub fn to_writer_pretty<W, T>(writer: W, value: &T, opts: FormatOpts) -> Result<
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_writer_custom<W, T, F>(writer: W, value: &T, formatter: F) -> Result<()>
-    where
-        W: Write,
-        T: ?Sized + Serialize,
-        F: Formatter,
-{
+pub fn to_writer_custom<W: Write, T: ?Sized + Serialize, F: Formatter>(
+    writer: W,
+    value: &T,
+    formatter: F,
+) -> Result<()> {
     to_writer_impl!(@flat Serializer::custom(writer, formatter), value)
 }
 
@@ -162,11 +148,11 @@ pub fn to_writer_custom<W, T, F>(writer: W, value: &T, formatter: F) -> Result<(
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_writer_nested<W, T>(writer: W, key: &str, value: &T) -> Result<()>
-where
-    W: Write,
-    T: ?Sized + Serialize,
-{
+pub fn to_writer_nested<W: Write, T: ?Sized + Serialize>(
+    writer: W,
+    key: &str,
+    value: &T,
+) -> Result<()> {
     to_writer_impl!(@nested Serializer::new(writer), (key, value))
 }
 
@@ -177,16 +163,12 @@ where
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_writer_nested_pretty<W, T>(
+pub fn to_writer_nested_pretty<W: Write, T: ?Sized + Serialize>(
     writer: W,
     key: &str,
     value: &T,
     opts: FormatOpts,
-) -> Result<()>
-where
-    W: Write,
-    T: ?Sized + Serialize,
-{
+) -> Result<()> {
     to_writer_impl!(@nested Serializer::pretty(writer, opts), (key, value))
 }
 
@@ -197,12 +179,12 @@ where
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-pub fn to_writer_nested_custom<W, T, F>(writer: W, key: &str, value: &T, formatter: F) -> Result<()>
-where
-    W: Write,
-    T: ?Sized + Serialize,
-    F: Formatter,
-{
+pub fn to_writer_nested_custom<W: Write, T: ?Sized + Serialize, F: Formatter>(
+    writer: W,
+    key: &str,
+    value: &T,
+    formatter: F,
+) -> Result<()> {
     to_writer_impl!(@nested Serializer::custom(writer, formatter), (key, value))
 }
 

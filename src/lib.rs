@@ -48,19 +48,18 @@ impl KeyValues {
 
 #[cfg(feature = "std")]
 impl serde::Serialize for KeyValues {
-    fn serialize<S>(&self, _serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        _serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
         todo!()
     }
 }
 
 impl<'de> serde::Deserialize<'de> for KeyValues {
-    fn deserialize<D>(_deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        _deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
         todo!()
     }
 }

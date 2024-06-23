@@ -1,6 +1,7 @@
 use crate::Result;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
+use std::io::Read;
 
 /// Deserialize KeyValues text representing a flattened object to some type `T`.
 ///
@@ -8,10 +9,7 @@ use serde::Deserialize;
 ///
 /// Deserialization can fail if the input is not valid KeyValues or does not match the structure
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
-pub fn from_str<'a, T>(_s: &'a str) -> Result<T>
-    where
-        T: Deserialize<'a>,
-{
+pub fn from_str<'a, T: Deserialize<'a>>(_s: &'a str) -> Result<T> {
     todo!()
 }
 
@@ -21,10 +19,7 @@ pub fn from_str<'a, T>(_s: &'a str) -> Result<T>
 ///
 /// Deserialization can fail if the input is not valid KeyValues or does not match the structure
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
-pub fn from_str_nested<'a, T>(_s: &'a str) -> Result<(String, T)>
-where
-    T: Deserialize<'a>,
-{
+pub fn from_str_nested<'a, T: Deserialize<'a>>(_s: &'a str) -> Result<(String, T)> {
     todo!()
 }
 
@@ -35,11 +30,7 @@ where
 /// Deserialization can fail if the input is not valid KeyValues or does not match the structure
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
 #[cfg(feature = "std")]
-pub fn from_reader<R, T>(_reader: R) -> Result<T>
-    where
-        R: std::io::Read,
-        T: DeserializeOwned,
-{
+pub fn from_reader<R: Read, T: DeserializeOwned>(_reader: R) -> Result<T> {
     todo!()
 }
 
@@ -51,18 +42,14 @@ pub fn from_reader<R, T>(_reader: R) -> Result<T>
 /// Deserialization can fail if the input is not valid KeyValues or does not match the structure
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
 #[cfg(feature = "std")]
-pub fn from_reader_nested<R, T>(_reader: R) -> Result<(String, T)>
-where
-    R: std::io::Read,
-    T: DeserializeOwned,
-{
+pub fn from_reader_nested<R: Read, T: DeserializeOwned>(_reader: R) -> Result<(String, T)> {
     todo!()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{KeyValues, Value, Error};
+    use crate::{Error, KeyValues, Value};
     use indoc::indoc;
     use serde::Deserialize;
 

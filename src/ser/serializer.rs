@@ -5,20 +5,13 @@ use serde::Serialize;
 use std::borrow::Cow;
 use std::io::Write;
 
-pub struct Serializer<W, F = PrettyFormatter>
-where
-    W: Write,
-    F: Formatter,
-{
+pub struct Serializer<W, F = PrettyFormatter> {
     writer: W,
     formatter: F,
     key_stack: Vec<Cow<'static, str>>,
 }
 
-impl<W> Serializer<W, PrettyFormatter>
-where
-    W: Write,
-{
+impl<W: Write> Serializer<W, PrettyFormatter> {
     /// Creates a new KeyValues serializer using an appropriate formatter.
     pub fn new(writer: W) -> Self {
         Self::custom(writer, PrettyFormatter::new())
@@ -30,11 +23,7 @@ where
     }
 }
 
-impl<W, F> Serializer<W, F>
-where
-    W: Write,
-    F: Formatter,
-{
+impl<W: Write, F: Formatter> Serializer<W, F> {
     pub fn custom(writer: W, formatter: F) -> Self {
         Self {
             writer,
@@ -58,11 +47,7 @@ macro_rules! serialize_as_str_impl {
     }
 }
 
-impl<'a, W, F> serde::Serializer for &'a mut Serializer<W, F>
-where
-    W: Write,
-    F: Formatter,
-{
+impl<'a, W: Write, F: Formatter> serde::Serializer for &'a mut Serializer<W, F> {
     type Ok = ();
     type Error = Error;
     type SerializeSeq = Self;
@@ -121,10 +106,7 @@ where
         self.serialize_str("")
     }
 
-    fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Self::Ok>
-    where
-        T: Serialize,
-    {
+    fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result<Self::Ok> {
         value.serialize(self)
     }
 
@@ -145,23 +127,21 @@ where
         self.serialize_str(variant)
     }
 
-    fn serialize_newtype_struct<T: ?Sized>(self, _name: &'static str, value: &T) -> Result<Self::Ok>
-    where
-        T: Serialize,
-    {
+    fn serialize_newtype_struct<T: ?Sized + Serialize>(
+        self,
+        _name: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok> {
         value.serialize(self)
     }
 
-    fn serialize_newtype_variant<T: ?Sized>(
+    fn serialize_newtype_variant<T: ?Sized + Serialize>(
         self,
         _name: &'static str,
         _variant_index: u32,
         variant: &'static str,
         value: &T,
-    ) -> Result<Self::Ok>
-    where
-        T: Serialize,
-    {
+    ) -> Result<Self::Ok> {
         self.formatter
             .begin_object(&mut self.writer)
             .map_err(|e| Error::Io(e))?;
@@ -266,19 +246,11 @@ where
     }
 }
 
-struct MapKeySerializer<'a, W, F>
-where
-    W: Write,
-    F: Formatter,
-{
+struct MapKeySerializer<'a, W, F> {
     serializer: &'a mut Serializer<W, F>,
 }
 
-impl<'a, W, F> serde::Serializer for MapKeySerializer<'a, W, F>
-where
-    W: Write,
-    F: Formatter,
-{
+impl<'a, W: Write, F: Formatter> serde::Serializer for MapKeySerializer<'a, W, F> {
     type Ok = ();
     type Error = Error;
     type SerializeSeq = Impossible<Self::Ok, Self::Error>;
@@ -340,10 +312,7 @@ where
         Err(Error::KeyMustBeAString("bytes".to_string()))
     }
 
-    fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Self::Ok>
-    where
-        T: Serialize,
-    {
+    fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result<Self::Ok> {
         value.serialize(self)
     }
 
@@ -364,23 +333,21 @@ where
         Err(Error::KeyMustBeAString("unit variant".to_string()))
     }
 
-    fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
+    fn serialize_newtype_struct<T: ?Sized + Serialize>(
+        self,
+        _name: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok> {
         value.serialize(self)
     }
 
-    fn serialize_newtype_variant<T>(
+    fn serialize_newtype_variant<T: ?Sized + Serialize>(
         self,
         _name: &'static str,
         _variant_index: u32,
         _variant: &'static str,
         _value: &T,
-    ) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
+    ) -> Result<Self::Ok> {
         Err(Error::KeyMustBeAString("newtype variant".to_string()))
     }
 
@@ -429,18 +396,11 @@ where
     }
 }
 
-impl<'a, W, F> serde::ser::SerializeSeq for &'a mut Serializer<W, F>
-where
-    W: Write,
-    F: Formatter,
-{
+impl<'a, W: Write, F: Formatter> serde::ser::SerializeSeq for &'a mut Serializer<W, F> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_element<T>(&mut self, value: &T) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<Self::Ok> {
         let key = self.key_stack.last().ok_or(Error::RootLevelSequence)?;
 
         self.formatter
@@ -469,18 +429,11 @@ where
     }
 }
 
-impl<'a, W, F> serde::ser::SerializeTuple for &'a mut Serializer<W, F>
-where
-    W: Write,
-    F: Formatter,
-{
+impl<'a, W: Write, F: Formatter> serde::ser::SerializeTuple for &'a mut Serializer<W, F> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_element<T>(&mut self, value: &T) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<Self::Ok> {
         serde::ser::SerializeSeq::serialize_element(self, value)
     }
 
@@ -489,18 +442,11 @@ where
     }
 }
 
-impl<'a, W, F> serde::ser::SerializeTupleStruct for &'a mut Serializer<W, F>
-where
-    W: Write,
-    F: Formatter,
-{
+impl<'a, W: Write, F: Formatter> serde::ser::SerializeTupleStruct for &'a mut Serializer<W, F> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, value: &T) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
+    fn serialize_field<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<Self::Ok> {
         serde::ser::SerializeSeq::serialize_element(self, value)
     }
 
@@ -513,18 +459,11 @@ where
     }
 }
 
-impl<'a, W, F> serde::ser::SerializeTupleVariant for &'a mut Serializer<W, F>
-where
-    W: Write,
-    F: Formatter,
-{
+impl<'a, W: Write, F: Formatter> serde::ser::SerializeTupleVariant for &'a mut Serializer<W, F> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, value: &T) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
+    fn serialize_field<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<Self::Ok> {
         serde::ser::SerializeSeq::serialize_element(self, value)
     }
 
@@ -534,26 +473,16 @@ where
     }
 }
 
-impl<'a, W, F> serde::ser::SerializeMap for &'a mut Serializer<W, F>
-where
-    W: Write,
-    F: Formatter,
-{
+impl<'a, W: Write, F: Formatter> serde::ser::SerializeMap for &'a mut Serializer<W, F> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_key<T>(&mut self, key: &T) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
+    fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<Self::Ok> {
         let ser = MapKeySerializer { serializer: self };
         key.serialize(ser)
     }
 
-    fn serialize_value<T>(&mut self, value: &T) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
+    fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<Self::Ok> {
         self.formatter
             .begin_value(&mut self.writer)
             .map_err(|e| Error::Io(e))?;
@@ -572,18 +501,15 @@ where
     }
 }
 
-impl<'a, W, F> serde::ser::SerializeStruct for &'a mut Serializer<W, F>
-where
-    W: Write,
-    F: Formatter,
-{
+impl<'a, W: Write, F: Formatter> serde::ser::SerializeStruct for &'a mut Serializer<W, F> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
+    fn serialize_field<T: ?Sized + Serialize>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok> {
         self.key_stack.push(Cow::Borrowed(key));
 
         self.formatter
@@ -615,18 +541,15 @@ where
     }
 }
 
-impl<'a, W, F> serde::ser::SerializeStructVariant for &'a mut Serializer<W, F>
-where
-    W: Write,
-    F: Formatter,
-{
+impl<'a, W: Write, F: Formatter> serde::ser::SerializeStructVariant for &'a mut Serializer<W, F> {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<Self::Ok>
-    where
-        T: ?Sized + Serialize,
-    {
+    fn serialize_field<T: ?Sized + Serialize>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok> {
         serde::ser::SerializeStruct::serialize_field(self, key, value)
     }
 

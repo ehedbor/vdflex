@@ -5,49 +5,39 @@ use std::io::{self, Write};
 /// By default, there is only one implementation: [PrettyFormatter].
 pub trait Formatter {
     /// Called before writing an object (including the root).
-    fn begin_object<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write;
+    fn begin_object<W: ?Sized + Write>(&mut self, writer: &mut W) -> io::Result<()>;
 
     /// Called after every object (including the root).
-    fn end_object<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write;
+    fn end_object<W: ?Sized + Write>(&mut self, writer: &mut W) -> io::Result<()>;
 
     /// Called before writing a key in a key-value pair.
-    fn begin_key<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write;
+    fn begin_key<W: ?Sized + Write>(&mut self, writer: &mut W) -> io::Result<()>;
 
     /// Called after writing a key in a key-value pair.
-    fn end_key<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write;
+    fn end_key<W: ?Sized + Write>(&mut self, writer: &mut W) -> io::Result<()>;
 
     /// Called before writing a value in a key-value pair.
-    fn begin_value<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write;
+    fn begin_value<W: ?Sized + Write>(&mut self, writer: &mut W) -> io::Result<()>;
 
     /// Called after writing a value in a key-value pair.
-    fn end_value<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write;
+    fn end_value<W: ?Sized + Write>(&mut self, writer: &mut W) -> io::Result<()>;
 
     /// Writes a string value.
-    fn write_string<W>(&mut self, writer: &mut W, s: &str) -> io::Result<()>
-    where
-        W: ?Sized + Write;
+    fn write_string<W: ?Sized + Write>(&mut self, writer: &mut W, s: &str) -> io::Result<()>;
 
     /// Writes a conditional tag. Must be called after `write_key` and before `end_key`.
-    fn write_conditional<W>(&mut self, writer: &mut W, condition: &str) -> io::Result<()>
-    where
-        W: ?Sized + Write;
+    fn write_conditional<W: ?Sized + Write>(
+        &mut self,
+        writer: &mut W,
+        condition: &str,
+    ) -> io::Result<()>;
 
     /// Writes a line comment. Must not be called while writing a key-value pair.
-    fn write_line_comment<W>(&mut self, writer: &mut W, comment: &str) -> io::Result<()>
-    where
-        W: ?Sized + Write;
+    fn write_line_comment<W: ?Sized + Write>(
+        &mut self,
+        writer: &mut W,
+        comment: &str,
+    ) -> io::Result<()>;
 }
 
 /// Controls the formatting of curly brackets in KeyValues objects.
@@ -162,25 +152,19 @@ impl PrettyFormatter {
         return elem;
     }
 
-    fn write_indent<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
+    fn write_indent<W: ?Sized + Write>(&mut self, writer: &mut W) -> io::Result<()> {
         for _ in 0..self.indent_level {
             writer.write_all(self.opts.indent.as_bytes())?;
         }
         Ok(())
     }
 
-    fn write_string_element<W>(
+    fn write_string_element<W: ?Sized + Write>(
         &mut self,
         writer: &mut W,
         s: &str,
         quoting: Quoting,
-    ) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
+    ) -> io::Result<()> {
         // Write a quote if necessary and remember for later.
         let need_quotes = match quoting {
             Quoting::Always => true,
@@ -237,10 +221,7 @@ impl Default for PrettyFormatter {
 }
 
 impl Formatter for PrettyFormatter {
-    fn begin_object<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
+    fn begin_object<W: ?Sized + Write>(&mut self, writer: &mut W) -> io::Result<()> {
         if self.elements.is_empty() {
             self.push_element(ElementKind::Object);
             return Ok(());
@@ -263,10 +244,7 @@ impl Formatter for PrettyFormatter {
         Ok(())
     }
 
-    fn end_object<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
+    fn end_object<W: ?Sized + Write>(&mut self, writer: &mut W) -> io::Result<()> {
         let elem = self.pop_element();
         debug_assert_eq!(
             elem,
@@ -281,20 +259,14 @@ impl Formatter for PrettyFormatter {
         Ok(())
     }
 
-    fn begin_key<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
+    fn begin_key<W: ?Sized + Write>(&mut self, writer: &mut W) -> io::Result<()> {
         self.push_element(ElementKind::KeyValue);
         self.push_element(ElementKind::Key);
         self.write_indent(writer)?;
         Ok(())
     }
 
-    fn end_key<W>(&mut self, _writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
+    fn end_key<W: ?Sized + Write>(&mut self, _writer: &mut W) -> io::Result<()> {
         let elem = self.pop_element();
         debug_assert_eq!(
             elem,
@@ -310,10 +282,7 @@ impl Formatter for PrettyFormatter {
         Ok(())
     }
 
-    fn begin_value<W>(&mut self, _writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
+    fn begin_value<W: ?Sized + Write>(&mut self, _writer: &mut W) -> io::Result<()> {
         debug_assert_eq!(
             self.elements.last(),
             Some(&ElementKind::KeyValue),
@@ -324,10 +293,7 @@ impl Formatter for PrettyFormatter {
         Ok(())
     }
 
-    fn end_value<W>(&mut self, writer: &mut W) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
+    fn end_value<W: ?Sized + Write>(&mut self, writer: &mut W) -> io::Result<()> {
         let elem = self.pop_element();
         debug_assert_eq!(
             elem,
@@ -345,10 +311,7 @@ impl Formatter for PrettyFormatter {
         writer.write_all(b"\n")
     }
 
-    fn write_string<W>(&mut self, writer: &mut W, s: &str) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
+    fn write_string<W: ?Sized + Write>(&mut self, writer: &mut W, s: &str) -> io::Result<()> {
         let element = self.elements.last();
         debug_assert_ne!(
             element,
@@ -381,10 +344,11 @@ impl Formatter for PrettyFormatter {
         self.write_string_element(writer, s, quoting)
     }
 
-    fn write_conditional<W>(&mut self, writer: &mut W, condition: &str) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
+    fn write_conditional<W: ?Sized + Write>(
+        &mut self,
+        writer: &mut W,
+        condition: &str,
+    ) -> io::Result<()> {
         debug_assert_eq!(
             self.elements.last(),
             Some(&ElementKind::Key),
@@ -393,10 +357,11 @@ impl Formatter for PrettyFormatter {
         write!(writer, " [{condition}]")
     }
 
-    fn write_line_comment<W>(&mut self, writer: &mut W, comment: &str) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
+    fn write_line_comment<W: ?Sized + Write>(
+        &mut self,
+        writer: &mut W,
+        comment: &str,
+    ) -> io::Result<()> {
         debug_assert_ne!(
             self.elements.last(),
             Some(&ElementKind::KeyValue),
@@ -426,24 +391,22 @@ mod tests {
     use std::io;
 
     #[inline]
-    fn write_document<F, W, Fn>(f: &mut F, w: &mut W, fun: Fn) -> io::Result<()>
-    where
-        F: Formatter,
-        W: ?Sized + Write,
-        Fn: FnOnce(&mut F, &mut W) -> io::Result<()>,
-    {
+    fn write_document<F: Formatter, W: ?Sized + Write>(
+        f: &mut F,
+        w: &mut W,
+        fun: impl FnOnce(&mut F, &mut W) -> io::Result<()>,
+    ) -> io::Result<()> {
         f.begin_object(w)?;
         fun(f, w)?;
         f.end_object(w)
     }
 
     #[inline]
-    fn write_obj<F, W, Fn>(f: &mut F, w: &mut W, fun: Fn) -> io::Result<()>
-    where
-        F: Formatter,
-        W: ?Sized + Write,
-        Fn: FnOnce(&mut F, &mut W) -> io::Result<()>,
-    {
+    fn write_obj<F: Formatter, W: ?Sized + Write>(
+        f: &mut F,
+        w: &mut W,
+        fun: impl FnOnce(&mut F, &mut W) -> io::Result<()>,
+    ) -> io::Result<()> {
         f.begin_value(w)?;
         f.begin_object(w)?;
         fun(f, w)?;
@@ -452,32 +415,28 @@ mod tests {
     }
 
     #[inline]
-    fn write_key<F, W>(f: &mut F, w: &mut W, key: &str) -> io::Result<()>
-    where
-        F: Formatter,
-        W: ?Sized + Write,
-    {
+    fn write_key<F: Formatter, W: ?Sized + Write>(
+        f: &mut F,
+        w: &mut W,
+        key: &str,
+    ) -> io::Result<()> {
         f.begin_key(w)?;
         f.write_string(w, key)?;
         f.end_key(w)
     }
 
     #[inline]
-    fn write_value<F, W>(f: &mut F, w: &mut W, v: &str) -> io::Result<()>
-    where
-        F: Formatter,
-        W: ?Sized + Write,
-    {
+    fn write_value<F: Formatter, W: ?Sized + Write>(
+        f: &mut F,
+        w: &mut W,
+        v: &str,
+    ) -> io::Result<()> {
         f.begin_value(w)?;
         f.write_string(w, v)?;
         f.end_value(w)
     }
 
-    fn write_simple_vmt<F, W>(f: &mut F, w: &mut W) -> io::Result<()>
-    where
-        F: Formatter,
-        W: ?Sized + Write,
-    {
+    fn write_simple_vmt<F: Formatter, W: ?Sized + Write>(f: &mut F, w: &mut W) -> io::Result<()> {
         write_document(f, w, |f, w| {
             write_key(f, w, "LightmappedGeneric")?;
             write_obj(f, w, |f, w| {
@@ -490,11 +449,7 @@ mod tests {
         })
     }
 
-    fn write_nested_vdf<F, W>(f: &mut F, w: &mut W) -> io::Result<()>
-    where
-        F: Formatter,
-        W: ?Sized + Write,
-    {
+    fn write_nested_vdf<F: Formatter, W: ?Sized + Write>(f: &mut F, w: &mut W) -> io::Result<()> {
         f.write_line_comment(w, "Test comment")?;
         write_document(f, w, |f, w| {
             write_key(f, w, "#base")?;
@@ -514,11 +469,7 @@ mod tests {
         })
     }
 
-    fn write_advanced_vdf<F, W>(f: &mut F, w: &mut W) -> io::Result<()>
-    where
-        F: Formatter,
-        W: ?Sized + Write,
-    {
+    fn write_advanced_vdf<F: Formatter, W: ?Sized + Write>(f: &mut F, w: &mut W) -> io::Result<()> {
         f.write_line_comment(w, "Auto-generated by VDFlex")?;
         write_document(f, w, |f, w| {
             write_key(f, w, "Basic Settings")?;
