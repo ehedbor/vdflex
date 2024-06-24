@@ -3,7 +3,7 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use std::io::Read;
 
-/// Deserialize KeyValues text representing a flattened object to some type `T`.
+/// Deserialize a KeyValues value representing some type `T`.
 ///
 /// # Errors
 ///
@@ -13,17 +13,18 @@ pub fn from_str<'a, T: Deserialize<'a>>(_s: &'a str) -> Result<T> {
     todo!()
 }
 
-/// Deserialize KeyValues text representing a single key-value pair to the key and some type `T`.
+/// Deserialize a KeyValues object representing a single key-value pair mapping a string key to
+/// some type `T`.
 ///
 /// # Errors
 ///
 /// Deserialization can fail if the input is not valid KeyValues or does not match the structure
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
-pub fn from_str_nested<'a, T: Deserialize<'a>>(_s: &'a str) -> Result<(String, T)> {
+pub fn kv_from_str<'a, T: Deserialize<'a>>(_s: &'a str) -> Result<(String, T)> {
     todo!()
 }
 
-/// Deserialize KeyValues text representing a flattened object from a reader to some type `T`.
+/// Deserialize a KeyValues value representing some type `T` from a reader.
 ///
 /// # Errors
 ///
@@ -34,15 +35,16 @@ pub fn from_reader<R: Read, T: DeserializeOwned>(_reader: R) -> Result<T> {
     todo!()
 }
 
-/// Deserialize KeyValues text representing a single key-value pair from a reader to the key and
-/// some type `T`.
+/// Deserialize a KeyValues object representing a single key-value pair mapping a string key to
+/// some type `T`, from a reader.
+///
 ///
 /// # Errors
 ///
 /// Deserialization can fail if the input is not valid KeyValues or does not match the structure
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
 #[cfg(feature = "std")]
-pub fn from_reader_nested<R: Read, T: DeserializeOwned>(_reader: R) -> Result<(String, T)> {
+pub fn kv_from_reader<R: Read, T: DeserializeOwned>(_reader: R) -> Result<(String, T)> {
     todo!()
 }
 
@@ -90,7 +92,7 @@ mod tests {
 
     #[test]
     fn de_simple_struct() {
-        let (key, foo) = from_str_nested::<Foo>(SIMPLE_KEYVALUES).unwrap();
+        let (key, foo) = kv_from_str::<Foo>(SIMPLE_KEYVALUES).unwrap();
         assert_eq!(key, "foo");
         assert_eq!(foo.bar, "baz");
     }
@@ -158,7 +160,7 @@ mod tests {
 
     #[test]
     fn de_animals() -> Result<()> {
-        let animals = from_str_nested::<Animals>(ANIMALS);
+        let animals = kv_from_str::<Animals>(ANIMALS);
         assert!(matches!(animals, Err(Error::MultipleRootKeys)));
 
         let animals: Animals = from_str(ANIMALS)?;
