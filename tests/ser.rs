@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use indoc::indoc;
 use serde::Serialize;
 use std::f32::consts::PI;
@@ -27,7 +28,7 @@ struct Struct {
 #[derive(Serialize)]
 enum Enum {
     UnitVariant,
-    NewTypeVariant(char),
+    NewTypeVariant(String),
     TupleVariant(bool, String),
     StructVariant { c: char, i: i32 },
 }
@@ -265,4 +266,185 @@ fn serialize_tuple_struct() -> Result<()> {
     Ok(())
 }
 
-// TODO: Test the rest of the types
+#[test]
+fn serialize_struct() -> Result<()> {
+    let s = Struct {
+        c: 'X',
+        i: -123,
+        s: String::from("Test data"),
+        b: true,
+    };
+
+    assert_eq!(
+        to_string(&s)?,
+        indoc! {r#"
+        "c" "X"
+        "i" "-123"
+        "s" "Test data"
+        "b" "1"
+    "#}
+    );
+    assert_eq!(
+        kv_to_string("data", &s)?,
+        indoc! {r#"
+        "data"
+        {
+            "c" "X"
+            "i" "-123"
+            "s" "Test data"
+            "b" "1"
+        }
+    "#}
+    );
+
+    Ok(())
+}
+
+#[test]
+fn serialize_unit_variant() -> Result<()> {
+    assert_eq!(
+        kv_to_string("Variant", &Enum::UnitVariant)?,
+        indoc! {r#"
+            "Variant" "UnitVariant"
+        "#},
+    );
+    Ok(())
+}
+
+#[test]
+fn serialize_new_type_variant() -> Result<()> {
+    assert_eq!(
+        kv_to_string("Variant", &Enum::NewTypeVariant(String::from("inner")))?,
+        indoc! {r#"
+            "Variant"
+            {
+                "NewTypeVariant" "inner"
+            }
+        "#},
+    );
+    Ok(())
+}
+
+#[test]
+fn serialize_tuple_variant() -> Result<()> {
+    assert_eq!(
+        kv_to_string("Variant", &Enum::TupleVariant(false, String::from("data")))?,
+        indoc! {r#"
+            "Variant"
+            {
+                "TupleVariant" "0"
+                "TupleVariant" "data"
+            }
+        "#},
+    );
+    Ok(())
+}
+
+#[test]
+fn serialize_struct_variant() -> Result<()> {
+    assert_eq!(
+        kv_to_string(
+            "Variant",
+            &Enum::StructVariant {
+                c: 'K',
+                i: 1_000_000
+            }
+        )?,
+        indoc! {r#"
+            "Variant"
+            {
+                "StructVariant"
+                {
+                    "c" "K"
+                    "i" "1000000"
+                }
+            }
+        "#},
+    );
+    Ok(())
+}
+
+#[test]
+fn serialize_empty_collections() -> Result<()> {
+    let vec = Vec::<()>::new();
+    assert!(matches!(to_string(&vec), Err(Error::RootLevelSequence)));
+    assert_eq!(kv_to_string("empty", &vec)?, "");
+    
+    let map = HashMap::<String, ()>::new();
+    assert_eq!(to_string(&map)?, "");
+    assert_eq!(
+        kv_to_string("empty", &map)?,
+        indoc! {r#"
+            "empty"
+            {
+            }
+        "#},
+    );
+    
+    Ok(())
+}
+
+#[test]
+fn serialize_nested_sequence() {
+    let nested = vec![vec![10]];
+    assert!(matches!(kv_to_string("nested", &nested), Err(Error::NestedSequence)));
+    
+    let very_nested = vec![vec![vec![vec![()]]]];
+    assert!(matches!(kv_to_string("very_nested", &very_nested), Err(Error::NestedSequence)));
+}
+
+#[test]
+fn serialize_sequence() -> Result<()> {
+    let nums = vec![1.0, 2.0, 3.0];
+    assert_eq!(
+        kv_to_string("nums", &nums)?,
+        indoc! {r#"
+            "nums" "1.0"
+            "nums" "2.0"
+            "nums" "3.0"
+        "#},
+    );
+
+    let variants = vec![
+        Enum::UnitVariant,
+        Enum::NewTypeVariant(String::from("Hello")),
+        Enum::TupleVariant(true, String::from("Greetings, traveler.")),
+        Enum::StructVariant { c: 'y', i: 2000 },
+    ];
+
+    assert_eq!(
+        kv_to_string_pretty(
+            "variants",
+            &variants,
+            PrettyFormatter::new(FormatOpts {
+                brace_style: BraceStyle::KAndR,
+                quote_keys: Quoting::WhenRequired,
+                quote_values: Quoting::WhenRequired,
+                ..Default::default()
+            })
+        )?,
+        indoc! {r#"
+            variants UnitVariant
+            variants {
+                NewTypeVariant Hello
+            }
+            variants {
+                TupleVariant 1
+                TupleVariant "Greetings, traveler."
+            }
+            variants {
+                StructVariant {
+                    c y
+                    i 2000
+                }
+            }
+        "#},
+    );
+
+    Ok(())
+}
+
+#[test]
+fn serialize_map() {
+    todo!()
+}
