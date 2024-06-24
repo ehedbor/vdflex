@@ -1,9 +1,11 @@
+//! (De)serialization errors
+
 use std::fmt::Display;
 use std::io;
 use thiserror::Error;
 
 // TODO: this struct is incomplete and subject to change
-/// Represents all errors that can occur during serialization and deserialization.
+/// Represents all errors that can occur during serialization or deserialization.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
@@ -17,13 +19,11 @@ pub enum Error {
     /// 
     /// Not all Rust types have a suitable KeyValues equivalent. Some types that can't be 
     /// represented are: 
-    /// 
-    /// - `i128` and `u128` - KeyValues only supports up to `i64` and `u64`. If you really need 
-    ///   to save a number this big, try using a string instead.
-    /// - `[u8]` (raw bytes) - KeyValues cannot save binary data. Convert it to a string first. 
+    ///
+    /// - `[u8]` (raw bytes) - KeyValues cannot save binary data.
     #[error("type `{0}` is not supported")]
     UnsupportedType(String),
-    
+
     /// Indicates that multiple root-level keys were discovered, but the deserialization function
     /// used does not permit this.
     /// 
@@ -35,11 +35,11 @@ pub enum Error {
     /// the VMF (Valve map file) format. To allow the library to handle these formats, two families
     /// of ser/de functions are provided: *key-value functions* and *value functions*.
     ///
-    /// Key-value functions like [crate::ser::kv_to_string] and [crate::de::kv_from_string] 
-    /// operate on a single key-value pair. They are mainly intended for serializing and 
+    /// Key-value functions like [`vdflex::kv_to_string`] and `vdflex::kv_from_string`
+    /// operate on a single key-value pair. They are mainly intended for serializing and
     /// deserializing KeyValues files.
     /// 
-    /// Value functions like [crate::ser::to_string] and [crate::de::from_string] handle values
+    /// Value functions like [`vdflex::to_string`] and `vdflex::from_string` handle values
     /// directly, with no enclosing object. These functions can handle multiple root level keys,
     /// as well as incomplete files.
     /// 
@@ -53,9 +53,9 @@ pub enum Error {
     /// 
     /// # Explanation
     ///
-    /// There are two cases in which sequences cannot be serialized. The first occurs when a 
+    /// There are two cases in which sequences cannot be serialized. The first occurs when a
     /// top-level sequence is serialized, like so:
-    /// 
+    ///
     /// ```
     /// # use vdflex::error::Error;
     /// # use vdflex::ser::to_string;
@@ -63,9 +63,9 @@ pub enum Error {
     /// // println!(to_string(&nums).unwrap()); // panics
     /// # assert!(matches!(to_string(&nums), Err(Error::UnrepresentableSequence)));
     /// ```
-    /// 
+    ///
     /// The second case happens when a nested sequence is serialized:
-    /// 
+    ///
     /// ```
     /// # use vdflex::error::Error;
     /// # use vdflex::ser::to_string;
@@ -73,8 +73,8 @@ pub enum Error {
     /// // println!(to_string(&nested).unwrap()); // panics
     /// # assert!(matches!(to_string(&nested), Err(Error::UnrepresentableSequence)));
     /// ```
-    /// 
-    /// These errors both have the same root cause: the representation of sequences in KeyValues. 
+    ///
+    /// These errors both have the same root cause: the representation of sequences in KeyValues.
     /// In short, sequences are represented by repeating the parent element's key for each value
     /// in the sequence.
     ///
@@ -86,7 +86,7 @@ pub enum Error {
     /// 
     /// let data = Data { nums: vec![1, 2, 3] };
     /// println!("{}", kv_to_string("Data", &data).unwrap());
-    /// // This prints the following: 
+    /// // This prints the following:
     /// // Data
     /// // {
     /// //     "nums" "1"
@@ -101,37 +101,29 @@ pub enum Error {
     /// #        "nums" "3"
     /// #    "#},
     /// # );
-    /// 
+    ///
     /// let empty_data = Data { nums: vec![] };
     /// println!("{}", kv_to_string("Data", &empty_data).unwrap());
     /// // Data
     /// // {
     /// // }
     /// # assert_eq!(to_string(&empty_data).unwrap(), "");
-    /// ``` 
+    /// ```
     /// 
     /// As a result, sequences must be direct children of stuff with keys (e.g. maps and structs).
     #[error("tried to serialize a sequence with no valid KeyValues representation")]
     UnrepresentableSequence,
-    
-    /// Indicates that a non-finite floating-point number was attempted to be serialized.
-    ///
-    /// # Explanation
-    ///
-    /// KeyValues has no way to represent non-finite floats (that is, infinity and NaN). 
-    #[error("floating point value `{0}` is non-finite")]
-    NonFiniteFloat(f64),
-    
+
     /// Indicates that something that was not representable as a string was used as an
-    /// object key. 
-    /// 
+    /// object key.
+    ///
     /// # Explanation
-    /// 
+    ///
     /// Object keys are always strings in KeyValues. It is not possible to use data types
-    /// without a string representation as keys. 
+    /// without a string representation as keys.
     #[error("key must be a string, but it was a `{0}`")]
     KeyMustBeAString(String),
-    
+
     /// Indicates that a Serde error occurred.
     #[error("a serde error occurred: {0}")]
     Serde(String),
@@ -155,4 +147,5 @@ impl serde::de::Error for Error {
     }
 }
 
+/// Type alias for [Result](std::result::Result) with [enum@Error] as the error type.
 pub type Result<T> = std::result::Result<T, Error>;

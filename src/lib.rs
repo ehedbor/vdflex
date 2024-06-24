@@ -1,4 +1,6 @@
+#![doc = include_str!("../README.md")]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![warn(missing_docs)]
 
 mod de;
 pub mod error;
@@ -6,14 +8,20 @@ pub mod error;
 pub mod ser;
 
 pub use error::{Error, Result};
+pub use ser::{
+    kv_to_string, kv_to_string_pretty, kv_to_writer, kv_to_writer_pretty, to_string,
+    to_string_pretty, to_writer, to_writer_pretty,
+};
 
 use std::fmt;
 use std::result;
 
-/// Represents all possible KeyValues values.
+/// Represents all possible VDF values.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Value {
+    /// Stores a [`String`] value.
     String(String),
+    /// Stores an [`Object`] value.
     Object(Object),
 }
 
@@ -94,11 +102,13 @@ pub type Object = std::collections::BTreeMap<String, Vec<Value>>;
 /// of KeyValues (such as the VMF format) *do* permit multiple root keys.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct KeyValues {
+    /// The root object of the document.
     pub root: Object,
 }
 
 impl KeyValues {
-    /// Creates a KeyValues from a single key-value pair.
+    /// Creates a KeyValues from a single key-value pair. This is the typical way to create 
+    /// KeyValues document. 
     pub fn new(key: String, value: Value) -> Self {
         let mut root = Object::new();
         root.insert(key, vec![value]);

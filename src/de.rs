@@ -1,3 +1,5 @@
+//! Deserialize KeyValues text to Rust types.
+ 
 use crate::Result;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -10,7 +12,7 @@ use std::io::Read;
 /// Deserialization can fail if the input is not valid KeyValues or does not match the structure
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
 pub fn from_str<'a, T: Deserialize<'a>>(_s: &'a str) -> Result<T> {
-    todo!()
+    unimplemented!()
 }
 
 /// Deserialize a KeyValues object representing a single key-value pair mapping a string key to
@@ -21,7 +23,7 @@ pub fn from_str<'a, T: Deserialize<'a>>(_s: &'a str) -> Result<T> {
 /// Deserialization can fail if the input is not valid KeyValues or does not match the structure
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
 pub fn kv_from_str<'a, T: Deserialize<'a>>(_s: &'a str) -> Result<(String, T)> {
-    todo!()
+    unimplemented!()
 }
 
 /// Deserialize a KeyValues value representing some type `T` from a reader.
@@ -32,7 +34,7 @@ pub fn kv_from_str<'a, T: Deserialize<'a>>(_s: &'a str) -> Result<(String, T)> {
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
 #[cfg(feature = "std")]
 pub fn from_reader<R: Read, T: DeserializeOwned>(_reader: R) -> Result<T> {
-    todo!()
+    unimplemented!()
 }
 
 /// Deserialize a KeyValues object representing a single key-value pair mapping a string key to
@@ -45,7 +47,7 @@ pub fn from_reader<R: Read, T: DeserializeOwned>(_reader: R) -> Result<T> {
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
 #[cfg(feature = "std")]
 pub fn kv_from_reader<R: Read, T: DeserializeOwned>(_reader: R) -> Result<(String, T)> {
-    todo!()
+    unimplemented!()
 }
 
 #[cfg(test)]

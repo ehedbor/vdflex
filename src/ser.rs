@@ -1,3 +1,5 @@
+//! Serialize Rust types to KeyValues text.
+
 mod formatter;
 mod serializer;
 

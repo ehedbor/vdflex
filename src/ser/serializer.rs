@@ -8,6 +8,7 @@ use serde::Serialize;
 use std::borrow::Cow;
 use std::io::Write;
 
+/// Serializes Rust types into KeyValues text.
 pub struct Serializer<W, F = PrettyFormatter> {
     writer: W,
     formatter: F,
@@ -139,35 +140,8 @@ impl<'a, W: Write, F: Formatter> serde::Serializer for &'a mut Serializer<W, F> 
         self.serialize_str(s)
     }
 
-    serialize_as_str_impl!(i8, i16, i32, i64, u8, u16, u32, u64, char);
-
-    fn serialize_i128(self, _v: i128) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType("i128".to_string()))
-    }
-
-    fn serialize_u128(self, _v: u128) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType("u128".to_string()))
-    }
-
-    fn serialize_f32(self, v: f32) -> Result<Self::Ok> {
-        if v.is_finite() {
-            self.serialize_str(&v.to_string())
-        } else {
-            Err(Error::NonFiniteFloat(v as f64))
-        }
-    }
-
-    fn serialize_f64(self, v: f64) -> Result<Self::Ok> {
-        // Technically, VDF doesn't support doubles... or at least, one particular implementation
-        // doesn't support them. I assume that I won't break anything by trying to serialize as
-        // accurate a float as possible.
-        if v.is_finite() {
-            self.serialize_str(&v.to_string())
-        } else {
-            Err(Error::NonFiniteFloat(v))
-        }
-    }
-
+    serialize_as_str_impl!(i8, i16, i32, i64, i128, u8, u16, u32, u64, u128, f32, f64, char);
+    
     fn serialize_str(self, v: &str) -> Result<Self::Ok> {
         self.string_value(v)
     }
@@ -298,34 +272,10 @@ impl<'a, W: Write, F: Formatter> serde::Serializer for MapKeySerializer<'a, W, F
     type SerializeStruct = Impossible<Self::Ok, Self::Error>;
     type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
 
-    serialize_as_str_impl!(i8, i16, i32, i64, u8, u16, u32, u64, char);
+    serialize_as_str_impl!(i8, i16, i32, i64, i128, u8, u16, u32, u64, u128, f32, f64, char);
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok> {
         self.serialize_str(if v { "1" } else { "0" })
-    }
-
-    fn serialize_i128(self, _v: i128) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType("i128".to_string()))
-    }
-
-    fn serialize_u128(self, _v: u128) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType("u128".to_string()))
-    }
-
-    fn serialize_f32(self, v: f32) -> Result<Self::Ok> {
-        if !v.is_finite() {
-            Err(Error::NonFiniteFloat(v as f64))
-        } else {
-            self.serialize_str(&v.to_string())
-        }
-    }
-
-    fn serialize_f64(self, v: f64) -> Result<Self::Ok> {
-        if !v.is_finite() {
-            Err(Error::NonFiniteFloat(v))
-        } else {
-            self.serialize_str(&v.to_string())
-        }
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok> {

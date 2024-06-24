@@ -25,7 +25,8 @@ pub trait Formatter {
     /// Writes a string value.
     fn write_string<W: ?Sized + Write>(&mut self, writer: &mut W, s: &str) -> io::Result<()>;
 
-    /// Writes a conditional tag. Must be called after `write_key` and before `end_key`.
+    /// Writes a conditional tag. Must be called after `write_key` and before `write_string` and 
+    /// `end_key`.
     fn write_conditional<W: ?Sized + Write>(
         &mut self,
         writer: &mut W,
@@ -80,19 +81,20 @@ pub enum Quoting {
     WhenRequired,
 }
 
+/// Format options for [`PrettyFormatter`].
 #[derive(Clone, Debug)]
 pub struct FormatOpts {
     /// The sequence of characters to print for each indent level (default: 4 spaces).
     pub indent: String,
     /// The separator between keys and values (default: 1 space).
     pub separator: String,
-    /// How to format braces (default: [BraceStyle::Allman]).
+    /// How to format braces (default: [`BraceStyle::Allman`]).
     pub brace_style: BraceStyle,
-    /// How object keys should be quoted (default: [Quoting::Always]).
+    /// How object keys should be quoted (default: [`Quoting::Always`]).
     pub quote_keys: Quoting,
-    /// How macro keys should be quoted (default: [Quoting::Always]).
+    /// How macro keys should be quoted (default: [`Quoting::Always`]).
     pub quote_macro_keys: Quoting,
-    /// How object/macro values should be quoted (default: [Quoting::Always]).
+    /// How object/macro values should be quoted (default: [`Quoting::Always`]).
     pub quote_values: Quoting,
 }
 
@@ -125,6 +127,7 @@ pub struct PrettyFormatter {
 }
 
 impl PrettyFormatter {
+    /// Creates a new [`PrettyFormatter`] with the specified `opts`.
     pub fn new(opts: FormatOpts) -> Self {
         Self {
             opts,
