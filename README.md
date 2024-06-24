@@ -156,7 +156,7 @@ to support every Rust type, but not all types necessarily have an "idiomatic" or
 
 - The *Bytes* type is unsupported, as there is no clear way to represent binary data in KeyValues. 
 - Sequences are weird. It's not possible to serialize top-level or nested sequences. See 
-  [`vdflex::error::Error::UnrepresentableSequence`] for more. 
+  [`Error::UnrepresentableSequence`] for more. 
 
 ## Missing Features
 
@@ -166,13 +166,13 @@ Some missing features include:
 - Deserialization
   - Text parsing
   - Conversion to Rust types
-- An easier API for [`vdflex::Object`]
-- A `keyvalues!` macro to create [`vdflex::Object`]s
+- An easier API for [`Object`]
+- A `keyvalues!` macro to create [`Object`]s
 - Conditional tags
-  - The [`vdflex::ser::Formatter`] API supports conditional tags, but this is unsupported for the
+  - The [`ser::Formatter`] API supports conditional tags, but this is unsupported for the
     serde API.
 - `#base` and `#include` directives
-  - The [`vdflex::ser::Formatter`] API supports macro formatting, but the serde API treats
+  - The [`ser::Formatter`] API supports macro formatting, but the serde API treats
     macros like normal fields. 
 
 ## License

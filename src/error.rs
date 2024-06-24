@@ -35,11 +35,11 @@ pub enum Error {
     /// the VMF (Valve map file) format. To allow the library to handle these formats, two families
     /// of ser/de functions are provided: *key-value functions* and *value functions*.
     ///
-    /// Key-value functions like [`vdflex::kv_to_string`] and `vdflex::kv_from_string`
+    /// Key-value functions like [`crate::kv_to_string`] and `crate::kv_from_string`
     /// operate on a single key-value pair. They are mainly intended for serializing and
     /// deserializing KeyValues files.
     /// 
-    /// Value functions like [`vdflex::to_string`] and `vdflex::from_string` handle values
+    /// Value functions like [`crate::to_string`] and `crate::from_string` handle values
     /// directly, with no enclosing object. These functions can handle multiple root level keys,
     /// as well as incomplete files.
     /// 
