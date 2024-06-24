@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod de;
+mod de;
 pub mod error;
 #[cfg(feature = "std")]
 pub mod ser;

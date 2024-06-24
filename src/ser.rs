@@ -15,7 +15,7 @@ pub use serializer::Serializer;
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-#[inline(always)]
+#[cfg_attr(not(debug_assertions), inline(always))]
 pub fn to_string<T: ?Sized + Serialize>(value: &T) -> Result<String> {
     to_string_pretty(value, PrettyFormatter::default())
 }
@@ -42,7 +42,7 @@ pub fn to_string_pretty<T: ?Sized + Serialize, F: Formatter>(
 ///
 /// Serialization can fail if `T` cannot be represented as KeyValues or if `T`'s implementation
 /// of `Serialize` decides to fail.
-#[inline(always)]
+#[cfg_attr(not(debug_assertions), inline(always))]
 pub fn kv_to_string<T: ?Sized + Serialize>(key: &str, value: &T) -> Result<String> {
     kv_to_string_pretty(key, value, PrettyFormatter::default())
 }
