@@ -1,12 +1,12 @@
-use std::collections::HashMap;
 use indoc::indoc;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::f32::consts::PI;
 use vdflex::ser::{
     kv_to_string, kv_to_string_pretty, to_string, to_string_pretty, BraceStyle, FormatOpts,
     PrettyFormatter, Quoting,
 };
-use vdflex::{Error, Result};
+use vdflex::{Error, KeyValues, Object, Result, Value};
 
 #[derive(Serialize)]
 struct UnitStruct;
@@ -97,7 +97,7 @@ fn serialize_option() -> Result<()> {
 
     assert_eq!(
         to_string_pretty(&None::<i32>, PrettyFormatter::new(opts.clone()))?,
-        ""
+        "\"\""
     );
     assert_eq!(
         to_string_pretty(&Some(42), PrettyFormatter::new(opts.clone()))?,
@@ -113,60 +113,16 @@ fn serialize_option() -> Result<()> {
 
 #[test]
 fn serialize_unit() -> Result<()> {
-    let opts = FormatOpts {
-        brace_style: BraceStyle::KAndR,
-        quote_keys: Quoting::WhenRequired,
-        quote_values: Quoting::WhenRequired,
-        ..Default::default()
-    };
-
-    assert_eq!(
-        to_string_pretty(&(), PrettyFormatter::new(opts.clone()))?,
-        "\"\""
-    );
-    assert_eq!(
-        kv_to_string_pretty("Unit", &(), PrettyFormatter::new(opts.clone()))?,
-        indoc! {r#"
-            Unit ""
-        "#}
-    );
-
-    assert_eq!(
-        to_string_pretty(&UnitStruct, PrettyFormatter::new(opts.clone()))?,
-        "\"\""
-    );
-    assert_eq!(
-        kv_to_string_pretty("Unit", &UnitStruct, PrettyFormatter::new(opts.clone()))?,
-        indoc! {r#"
-            Unit ""
-        "#}
-    );
+    assert_eq!(to_string(&())?, "\"\"");
+    assert_eq!(kv_to_string("Unit", &())?, "");
 
     Ok(())
 }
 
 #[test]
 fn serialize_unit_struct() -> Result<()> {
-    let opts = FormatOpts {
-        quote_keys: Quoting::WhenRequired,
-        quote_values: Quoting::WhenRequired,
-        ..Default::default()
-    };
-
-    assert_eq!(
-        to_string_pretty(&UnitStruct, PrettyFormatter::new(opts.clone()))?,
-        "\"\""
-    );
-    assert_eq!(
-        kv_to_string_pretty(
-            "UnitStruct",
-            &UnitStruct,
-            PrettyFormatter::new(opts.clone())
-        )?,
-        indoc! {r#"
-            UnitStruct ""
-        "#}
-    );
+    assert_eq!(to_string(&UnitStruct)?, "\"\"");
+    assert_eq!(kv_to_string("Unit", &UnitStruct)?, "");
 
     Ok(())
 }
@@ -201,7 +157,10 @@ fn serialize_new_type_struct() -> Result<()> {
 fn serialize_tuple() -> Result<()> {
     let tuple = ("foo", 123, false, 'c', None::<i32>);
 
-    assert!(matches!(to_string(&tuple), Err(Error::RootLevelSequence)));
+    assert!(matches!(
+        to_string(&tuple),
+        Err(Error::UnrepresentableSequence)
+    ));
     assert_eq!(
         kv_to_string("value", &tuple)?,
         indoc! {r#"
@@ -209,31 +168,18 @@ fn serialize_tuple() -> Result<()> {
             "value" "123"
             "value" "0"
             "value" "c"
-            "value" ""
         "#}
     );
 
-    let tuple = ((), 1, (2,), ((3,),), (((4,),),), ((((5),),),));
-    assert!(matches!(to_string(&tuple), Err(Error::RootLevelSequence)));
-    assert_eq!(
-        kv_to_string_pretty(
-            "element",
-            &tuple,
-            PrettyFormatter::new(FormatOpts {
-                quote_keys: Quoting::WhenRequired,
-                quote_values: Quoting::WhenRequired,
-                ..Default::default()
-            }),
-        )?,
-        indoc! {r#"
-            element ""
-            element 1
-            element 2
-            element 3
-            element 4
-            element 5
-        "#}
-    );
+    let tuple = ((), 1, (2,), ((3,),), (((4,),),), ((((5,),),),));
+    assert!(matches!(
+        to_string(&tuple),
+        Err(Error::UnrepresentableSequence)
+    ));
+    assert!(matches!(
+        kv_to_string("element", &tuple),
+        Err(Error::UnrepresentableSequence)
+    ));
 
     Ok(())
 }
@@ -244,7 +190,7 @@ fn serialize_tuple_struct() -> Result<()> {
 
     assert!(matches!(
         to_string(&tuple_struct),
-        Err(Error::RootLevelSequence)
+        Err(Error::UnrepresentableSequence)
     ));
     assert_eq!(
         kv_to_string_pretty(
@@ -367,9 +313,12 @@ fn serialize_struct_variant() -> Result<()> {
 #[test]
 fn serialize_empty_collections() -> Result<()> {
     let vec = Vec::<()>::new();
-    assert!(matches!(to_string(&vec), Err(Error::RootLevelSequence)));
+    assert!(matches!(
+        to_string(&vec),
+        Err(Error::UnrepresentableSequence)
+    ));
     assert_eq!(kv_to_string("empty", &vec)?, "");
-    
+
     let map = HashMap::<String, ()>::new();
     assert_eq!(to_string(&map)?, "");
     assert_eq!(
@@ -380,17 +329,30 @@ fn serialize_empty_collections() -> Result<()> {
             }
         "#},
     );
-    
+
     Ok(())
 }
 
 #[test]
 fn serialize_nested_sequence() {
     let nested = vec![vec![10]];
-    assert!(matches!(kv_to_string("nested", &nested), Err(Error::NestedSequence)));
-    
+    assert!(matches!(
+        kv_to_string("nested", &nested),
+        Err(Error::UnrepresentableSequence)
+    ));
+
     let very_nested = vec![vec![vec![vec![()]]]];
-    assert!(matches!(kv_to_string("very_nested", &very_nested), Err(Error::NestedSequence)));
+    assert!(matches!(
+        kv_to_string("very_nested", &very_nested),
+        Err(Error::UnrepresentableSequence)
+    ));
+
+    let mut tricky = HashMap::new();
+    tricky.insert("this won't fool me!", vec![vec!["or will it?"]]);
+    assert!(matches!(
+        kv_to_string("tricky", &tricky),
+        Err(Error::UnrepresentableSequence)
+    ));
 }
 
 #[test]
@@ -399,9 +361,9 @@ fn serialize_sequence() -> Result<()> {
     assert_eq!(
         kv_to_string("nums", &nums)?,
         indoc! {r#"
-            "nums" "1.0"
-            "nums" "2.0"
-            "nums" "3.0"
+            "nums" "1"
+            "nums" "2"
+            "nums" "3"
         "#},
     );
 
@@ -445,6 +407,131 @@ fn serialize_sequence() -> Result<()> {
 }
 
 #[test]
-fn serialize_map() {
-    todo!()
+#[cfg(feature = "indexmap")]
+fn serialize_map() -> Result<()> {
+    let mut properties = indexmap::IndexMap::new();
+    properties.insert("Buzzword", vec!["foo", "bar", "baz"]);
+    properties.insert("Flag", vec!["1"]);
+    properties.insert(
+        "Comment",
+        vec!["I was planning on testing nested maps here but the type system stopped me >:("],
+    );
+
+    assert_eq!(
+        kv_to_string_pretty(
+            "Properties",
+            &properties,
+            PrettyFormatter::new(FormatOpts {
+                quote_keys: Quoting::WhenRequired,
+                quote_values: Quoting::WhenRequired,
+                ..Default::default()
+            })
+        )?,
+        indoc! {r#"
+            Properties
+            {
+                Buzzword foo
+                Buzzword bar
+                Buzzword baz
+                Flag 1
+                Comment "I was planning on testing nested maps here but the type system stopped me >:("
+            }
+        "#},
+    );
+
+    Ok(())
+}
+
+#[test]
+#[cfg(feature = "preserve_order")]
+fn serialize_key_values() -> Result<()> {
+    fn set_str(obj: &mut Object, key: impl ToString, value: impl ToString) {
+        obj.insert(key.to_string(), vec![Value::String(value.to_string())]);
+    }
+
+    let mut properties = Object::new();
+    set_str(&mut properties, "$basetexture", "water/water_still");
+    set_str(&mut properties, "$surfaceprop", "water");
+    set_str(&mut properties, "$transluscent", "1");
+    set_str(&mut properties, "%compilewater", "1");
+    set_str(&mut properties, "%tooltexture", "water/water_still_frame00");
+    set_str(&mut properties, "$abovewater", "1");
+    set_str(
+        &mut properties,
+        "$bottommaterial",
+        "water/water_still_beneath",
+    );
+    set_str(&mut properties, "$fogenable", "1");
+    set_str(&mut properties, "$fogcolor", "{5 5 51}");
+    set_str(&mut properties, "$fogstart", "0");
+    set_str(&mut properties, "$fogend", "200");
+    set_str(&mut properties, "$lightmapwaterfog", "1");
+    set_str(&mut properties, "$flashlightttint", "1");
+
+    let mut animated_texture = Object::new();
+    animated_texture.insert(
+        String::from("animatedTextureVar"),
+        vec![Value::String(String::from("$basetexture"))],
+    );
+    animated_texture.insert(
+        String::from("animatedTextureFrameNumVar"),
+        vec![Value::String(String::from("$frame"))],
+    );
+    animated_texture.insert(
+        String::from("animatedTextureFrameRate"),
+        vec![Value::String(String::from("10"))],
+    );
+
+    let mut proxies = Object::new();
+    proxies.insert(
+        String::from("AnimatedTexture"),
+        vec![Value::Object(animated_texture)],
+    );
+    
+    properties.insert(String::from("Proxies"), vec![Value::Object(proxies)]);
+
+    let vmt = KeyValues::new(
+        String::from("LightmappedGeneric"),
+        Value::Object(properties),
+    );
+
+    assert_eq!(
+        to_string_pretty(
+            &vmt,
+            PrettyFormatter::new(FormatOpts {
+                quote_keys: Quoting::WhenRequired,
+                quote_values: Quoting::WhenRequired,
+                ..Default::default()
+            })
+        )?,
+        indoc! {r#"
+            LightmappedGeneric
+            {
+                $basetexture water/water_still
+                $surfaceprop water
+                $transluscent 1
+                %compilewater 1
+                %tooltexture water/water_still_frame00
+                $abovewater 1
+                $bottommaterial water/water_still_beneath
+                $fogenable 1
+                $fogcolor "{5 5 51}"
+                $fogstart 0
+                $fogend 200
+                $lightmapwaterfog 1
+                $flashlightttint 1
+                Proxies
+                {
+                    AnimatedTexture
+                    {
+                        animatedTextureVar $basetexture
+                        animatedTextureFrameNumVar $frame
+                        animatedTextureFrameRate 10
+                    }
+                }
+            }
+        "#},
+    );
+
+    Ok(())
 }

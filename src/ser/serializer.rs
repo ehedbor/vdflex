@@ -1,6 +1,9 @@
 use super::formatter::{Formatter, PrettyFormatter};
 use crate::{Error, Result};
-use serde::ser::Impossible;
+use serde::ser::{
+    Impossible, SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant,
+    SerializeTuple, SerializeTupleStruct, SerializeTupleVariant,
+};
 use serde::Serialize;
 use std::borrow::Cow;
 use std::io::Write;
@@ -8,7 +11,7 @@ use std::io::Write;
 pub struct Serializer<W, F = PrettyFormatter> {
     writer: W,
     formatter: F,
-    key_stack: Vec<Cow<'static, str>>,
+    elements: Vec<Option<Cow<'static, str>>>,
 }
 
 impl<W: Write, F: Formatter> Serializer<W, F> {
@@ -17,8 +20,92 @@ impl<W: Write, F: Formatter> Serializer<W, F> {
         Self {
             writer,
             formatter,
-            key_stack: Vec::new(),
+            elements: Vec::new(),
         }
+    }
+
+    fn begin_seq(&mut self) -> Result<()> {
+        // Make sure sequences are enclosed in maps
+        match self.elements.last() {
+            Some(Some(_)) => Ok(()),
+            _ => Err(Error::UnrepresentableSequence),
+        }
+    }
+    
+    fn end_seq(&mut self) -> Result<()> {
+        Ok(())
+    }
+    
+    fn begin_map(&mut self) -> Result<()> {
+        if let Some(key) = Self::current_key(&self.elements) {
+            self.formatter
+                .begin_key(&mut self.writer)
+                .and_then(|_| self.formatter.write_string(&mut self.writer, key))
+                .and_then(|_| self.formatter.end_key(&mut self.writer))
+                .and_then(|_| self.formatter.begin_value(&mut self.writer))
+                .map_err(|e| Error::Io(e))?;
+        }
+
+        self.formatter
+            .begin_object(&mut self.writer)
+            .map_err(|e| Error::Io(e))
+    }
+
+    fn end_map(&mut self) -> Result<()> {
+        self.formatter
+            .end_object(&mut self.writer)
+            .map_err(|e| Error::Io(e))?;
+            
+        if !self.elements.is_empty() {
+            self.formatter
+                .end_value(&mut self.writer)
+                .map_err(|e| Error::Io(e))?;
+        }
+        
+        Ok(())
+    }
+
+    /// Begins a map element (when `key` is `Some`) or sequence element (when `key` is `None).
+    fn begin_element(&mut self, key: Option<Cow<'static, str>>) -> Result<()> {
+        self.elements.push(key);
+        Ok(())
+    }
+
+    /// Ends the current map or sequence element.
+    fn end_element(&mut self) -> Result<()> {
+        self.elements.pop();
+        Ok(())
+    }
+
+    fn string_value(&mut self, value: &str) -> Result<()> {
+        if let Some(key) = Self::current_key(&self.elements) {
+            // We're in a map or sequence. Write a key-value.
+            self.formatter
+                .begin_key(&mut self.writer)
+                .and_then(|_| self.formatter.write_string(&mut self.writer, key))
+                .and_then(|_| self.formatter.end_key(&mut self.writer))
+                .and_then(|_| self.formatter.begin_value(&mut self.writer))
+                .and_then(|_| self.formatter.write_string(&mut self.writer, value))
+                .and_then(|_| self.formatter.end_value(&mut self.writer))
+                .map_err(|e| Error::Io(e))
+        } else {
+            // We're at the root level. Just write the plain string.
+            self.formatter
+                .write_string(&mut self.writer, value)
+                .map_err(|e| Error::Io(e))
+        }
+    }
+    
+    fn current_key<'a>(elements: &'a Vec<Option<Cow<'a, str>>>) -> Option<&'a str> {
+        elements.last().map(|element| match element {
+            Some(direct_key) => direct_key.as_ref(),
+            None => elements
+                .iter()
+                .nth_back(1)
+                .expect("found root-level list? (should be impossible)")
+                .as_ref()
+                .expect("found nested list? (should be impossible)"),
+        })
     }
 }
 
@@ -82,9 +169,7 @@ impl<'a, W: Write, F: Formatter> serde::Serializer for &'a mut Serializer<W, F> 
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok> {
-        self.formatter
-            .write_string(&mut self.writer, v)
-            .map_err(|e| Error::Io(e))
+        self.string_value(v)
     }
 
     fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok> {
@@ -92,8 +177,12 @@ impl<'a, W: Write, F: Formatter> serde::Serializer for &'a mut Serializer<W, F> 
     }
 
     fn serialize_none(self) -> Result<Self::Ok> {
-        // TODO: this should be represented by omitting the key
-        self.serialize_str("")
+        // omit the value entirely, unless we're at root level.
+        if self.elements.is_empty() {
+            self.string_value("")?;
+        }
+        
+        Ok(())
     }
 
     fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result<Self::Ok> {
@@ -132,38 +221,17 @@ impl<'a, W: Write, F: Formatter> serde::Serializer for &'a mut Serializer<W, F> 
         variant: &'static str,
         value: &T,
     ) -> Result<Self::Ok> {
-        self.formatter
-            .begin_object(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-
-        self.key_stack.push(Cow::Borrowed(variant));
-        self.formatter
-            .begin_key(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-        self.formatter
-            .write_string(&mut self.writer, variant)
-            .map_err(|e| Error::Io(e))?;
-        self.formatter
-            .end_key(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-
-        self.formatter
-            .begin_value(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
+        self.begin_map()?;
+        self.begin_element(Some(Cow::Borrowed(variant)))?;
         value.serialize(&mut *self)?;
-        self.formatter
-            .end_value(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-        self.key_stack.pop();
-
-        self.formatter
-            .end_object(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
+        self.end_element()?;
+        self.end_map()?;
 
         Ok(())
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
+        self.begin_seq()?;
         Ok(self)
     }
 
@@ -176,7 +244,7 @@ impl<'a, W: Write, F: Formatter> serde::Serializer for &'a mut Serializer<W, F> 
         _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct> {
-        self.serialize_tuple(len)
+        self.serialize_seq(Some(len))
     }
 
     fn serialize_tuple_variant(
@@ -186,24 +254,18 @@ impl<'a, W: Write, F: Formatter> serde::Serializer for &'a mut Serializer<W, F> 
         variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        self.key_stack.push(Cow::Borrowed(variant));
-        self.formatter
-            .begin_object(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
+        self.begin_map()?;
+        self.begin_element(Some(Cow::Borrowed(variant)))?;
         Ok(self)
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        self.formatter
-            .begin_object(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
+        self.begin_map()?;
         Ok(self)
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        self.formatter
-            .begin_object(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
+        self.begin_map()?;
         Ok(self)
     }
 
@@ -214,27 +276,9 @@ impl<'a, W: Write, F: Formatter> serde::Serializer for &'a mut Serializer<W, F> 
         variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        self.formatter
-            .begin_object(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-
-        self.key_stack.push(Cow::Borrowed(variant));
-        self.formatter
-            .begin_key(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-        self.formatter
-            .write_string(&mut self.writer, variant)
-            .map_err(|e| Error::Io(e))?;
-        self.formatter
-            .end_key(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-
-        self.formatter
-            .begin_value(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-        self.formatter
-            .begin_object(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
+        self.begin_map()?;
+        self.begin_element(Some(Cow::Borrowed(variant)))?;
+        self.begin_map()?;
         Ok(self)
     }
 }
@@ -285,16 +329,8 @@ impl<'a, W: Write, F: Formatter> serde::Serializer for MapKeySerializer<'a, W, F
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok> {
-        self.serializer.key_stack.push(Cow::Owned(String::from(v)));
-        self.serializer
-            .formatter
-            .begin_key(&mut self.serializer.writer)
-            .map_err(|e| Error::Io(e))?;
-        v.serialize(&mut *self.serializer)?;
-        self.serializer
-            .formatter
-            .end_key(&mut self.serializer.writer)
-            .map_err(|e| Error::Io(e))
+        let key = Cow::Owned(String::from(v));
+        self.serializer.begin_element(Some(key))
     }
 
     fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok> {
@@ -302,11 +338,11 @@ impl<'a, W: Write, F: Formatter> serde::Serializer for MapKeySerializer<'a, W, F
     }
 
     fn serialize_none(self) -> Result<Self::Ok> {
-        Err(Error::KeyMustBeAString("bytes".to_string()))
+        Err(Error::KeyMustBeAString("none".to_string()))
     }
 
-    fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result<Self::Ok> {
-        value.serialize(self)
+    fn serialize_some<T: ?Sized + Serialize>(self, _value: &T) -> Result<Self::Ok> {
+        Err(Error::KeyMustBeAString("some".to_string()))
     }
 
     fn serialize_unit(self) -> Result<Self::Ok> {
@@ -389,110 +425,62 @@ impl<'a, W: Write, F: Formatter> serde::Serializer for MapKeySerializer<'a, W, F
     }
 }
 
-impl<'a, W: Write, F: Formatter> serde::ser::SerializeSeq for &'a mut Serializer<W, F> {
+impl<'a, W: Write, F: Formatter> SerializeSeq for &'a mut Serializer<W, F> {
     type Ok = ();
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<Self::Ok> {
-        let key = self.key_stack.last().ok_or(Error::RootLevelSequence)?;
-
-        // TODO: Fix Map<String, Sequence<T>> serialization
-        // TL;DR: Map<_, Sequence<_>> needs to be special-cased.
-        //
-        // Maps serialize keys and values separately, first writing the key, then the value. This is
-        // problematic when serializing a map containing sequences as its value, because it is 
-        // assumed here that we ONLY write the key(s) HERE! As a result, the first element's key is
-        // written TWICE.
-        //
-        // As a fix, we COULD check if we've already begun a KeyValue by checking the formatter's 
-        // element stack. If so, we simply skip the key for now. Future elements would write the key
-        // as expected. 
-        // 
-        // Unfortunately, this doesn't work in practice. First of all, SerializeMap also calls 
-        // begin_value and end_value so we're already screwed. Second, PrettyFormatter (the only 
-        // Formatter impl as of yet) keeps track of which elements it's currently considering, but 
-        // the generic Formatter trait does not have any such requirement. I also feel it would be 
-        // strange to introduce a requirement to expose what is mostly intended as a sanity check. 
-        // Third, this doesn't even handle empty sequences.
-        //
-        // See, remember where I said that SerializeMap always writes a key before writing a value?
-        // This also happens for empty sequences! Empty sequences shouldn't print anything at all.
-        // We can't just "delete" the key once we realize we don't need it, either. Once the key is
-        // written, it's written and we can't do anything about it.
-        //
-        // Clearly, a more involved solution is necessary. We need to be able to remember that we
-        // might need to write a key and only commit it once we realize we do, in fact, need it.
-        
-        self.formatter
-            .begin_key(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-        self.formatter
-            .write_string(&mut self.writer, key)
-            .map_err(|e| Error::Io(e))?;
-        self.formatter
-            .end_key(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-
-        self.formatter
-            .begin_value(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
+        self.begin_element(None)?;
         value.serialize(&mut **self)?;
-        self.formatter
-            .end_value(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-
-        Ok(())
+        self.end_element()
     }
 
     fn end(self) -> Result<Self::Ok> {
-        Ok(())
+        self.end_seq()
     }
 }
 
-impl<'a, W: Write, F: Formatter> serde::ser::SerializeTuple for &'a mut Serializer<W, F> {
+impl<'a, W: Write, F: Formatter> SerializeTuple for &'a mut Serializer<W, F> {
     type Ok = ();
     type Error = Error;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<Self::Ok> {
-        serde::ser::SerializeSeq::serialize_element(self, value)
+        SerializeSeq::serialize_element(self, value)
     }
 
     fn end(self) -> Result<Self::Ok> {
-        serde::ser::SerializeSeq::end(self)
+        SerializeSeq::end(self)
     }
 }
 
-impl<'a, W: Write, F: Formatter> serde::ser::SerializeTupleStruct for &'a mut Serializer<W, F> {
+impl<'a, W: Write, F: Formatter> SerializeTupleStruct for &'a mut Serializer<W, F> {
     type Ok = ();
     type Error = Error;
 
     fn serialize_field<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<Self::Ok> {
-        serde::ser::SerializeTuple::serialize_element(self, value)
+        SerializeSeq::serialize_element(self, value)
     }
 
     fn end(self) -> Result<Self::Ok> {
-        serde::ser::SerializeTuple::end(self)
+        SerializeSeq::end(self)
     }
 }
 
-impl<'a, W: Write, F: Formatter> serde::ser::SerializeTupleVariant for &'a mut Serializer<W, F> {
+impl<'a, W: Write, F: Formatter> SerializeTupleVariant for &'a mut Serializer<W, F> {
     type Ok = ();
     type Error = Error;
 
     fn serialize_field<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<Self::Ok> {
-        serde::ser::SerializeTuple::serialize_element(self, value)
+        value.serialize(&mut **self)
     }
 
     fn end(self) -> Result<Self::Ok> {
-        self.formatter
-            .end_object(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-        self.key_stack.pop();
-        Ok(())
+        self.end_element()?;
+        self.end_map()
     }
 }
 
-impl<'a, W: Write, F: Formatter> serde::ser::SerializeMap for &'a mut Serializer<W, F> {
+impl<'a, W: Write, F: Formatter> SerializeMap for &'a mut Serializer<W, F> {
     type Ok = ();
     type Error = Error;
 
@@ -502,25 +490,16 @@ impl<'a, W: Write, F: Formatter> serde::ser::SerializeMap for &'a mut Serializer
     }
 
     fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<Self::Ok> {
-        self.formatter
-            .begin_value(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
         value.serialize(&mut **self)?;
-        self.formatter
-            .end_value(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-        self.key_stack.pop();
-        Ok(())
+        self.end_element()
     }
 
     fn end(self) -> Result<Self::Ok> {
-        self.formatter
-            .end_object(&mut self.writer)
-            .map_err(|e| Error::Io(e))
+        self.end_map()
     }
 }
 
-impl<'a, W: Write, F: Formatter> serde::ser::SerializeStruct for &'a mut Serializer<W, F> {
+impl<'a, W: Write, F: Formatter> SerializeStruct for &'a mut Serializer<W, F> {
     type Ok = ();
     type Error = Error;
 
@@ -529,38 +508,17 @@ impl<'a, W: Write, F: Formatter> serde::ser::SerializeStruct for &'a mut Seriali
         key: &'static str,
         value: &T,
     ) -> Result<Self::Ok> {
-        self.key_stack.push(Cow::Borrowed(key));
-
-        self.formatter
-            .begin_key(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-        self.formatter
-            .write_string(&mut self.writer, key)
-            .map_err(|e| Error::Io(e))?;
-        self.formatter
-            .end_key(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-
-        self.formatter
-            .begin_value(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
+        self.begin_element(Some(Cow::Borrowed(key)))?;
         value.serialize(&mut **self)?;
-        self.formatter
-            .end_value(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-
-        self.key_stack.pop();
-        Ok(())
+        self.end_element()
     }
 
     fn end(self) -> Result<Self::Ok> {
-        self.formatter
-            .end_object(&mut self.writer)
-            .map_err(|e| Error::Io(e))
+        self.end_map()
     }
 }
 
-impl<'a, W: Write, F: Formatter> serde::ser::SerializeStructVariant for &'a mut Serializer<W, F> {
+impl<'a, W: Write, F: Formatter> SerializeStructVariant for &'a mut Serializer<W, F> {
     type Ok = ();
     type Error = Error;
 
@@ -569,21 +527,12 @@ impl<'a, W: Write, F: Formatter> serde::ser::SerializeStructVariant for &'a mut 
         key: &'static str,
         value: &T,
     ) -> Result<Self::Ok> {
-        serde::ser::SerializeStruct::serialize_field(self, key, value)
+        SerializeStruct::serialize_field(self, key, value)
     }
 
     fn end(self) -> Result<Self::Ok> {
-        self.formatter
-            .end_object(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-        self.formatter
-            .end_value(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-
-        self.key_stack.pop();
-        self.formatter
-            .end_object(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
-        Ok(())
+        self.end_map()?;
+        self.end_element()?;
+        self.end_map()
     }
 }

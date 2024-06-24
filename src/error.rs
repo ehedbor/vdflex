@@ -25,7 +25,7 @@ pub enum Error {
     UnsupportedType(String),
     
     /// Indicates that multiple root-level keys were discovered, but the deserialization function
-    /// does not permit this.
+    /// used does not permit this.
     /// 
     /// # Explanation
     /// 
@@ -49,37 +49,50 @@ pub enum Error {
     #[error("tried to deserialize multiple root keys (try `from_str` or `from_reader`)")]
     MultipleRootKeys,
     
-    /// Indicates that a sequence was serialized directly without an enclosing field.
+    /// Indicates that an unrepresentable sequence was serialized.
     /// 
     /// # Explanation
     ///
-    /// It is not possible to represent a sequence (such as a `Vec` or a tuple) as a singular, 
-    /// standalone KeyValues value. For example, the following code panics: 
+    /// There are two cases in which sequences cannot be serialized. The first occurs when a 
+    /// top-level sequence is serialized, like so:
     /// 
-    /// ```should_panic
+    /// ```
+    /// # use vdflex::error::Error;
     /// # use vdflex::ser::to_string;
-    /// let nums = vec![1, 2, 3];
-    /// let parsed = to_string(&nums).unwrap(); // panics
+    /// let nums = [1, 2, 3];
+    /// // println!(to_string(&nums).unwrap()); // panics
+    /// # assert!(matches!(to_string(&nums), Err(Error::UnrepresentableSequence)));
     /// ```
     /// 
-    /// It might seem strange that this is an error. After all, JSON doesn't have an issue with 
-    /// this! Neither does YAML, or XML, or pretty much any popular serialization format.
-    ///
-    /// Simply put, bare sequences are completely unrepresentable in KeyValues. This is because of 
-    /// the way sequences are represented: by repeating the element multiple times.
+    /// The second case happens when a nested sequence is serialized:
+    /// 
+    /// ```
+    /// # use vdflex::error::Error;
+    /// # use vdflex::ser::to_string;
+    /// let nested = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
+    /// // println!(to_string(&nested).unwrap()); // panics
+    /// # assert!(matches!(to_string(&nested), Err(Error::UnrepresentableSequence)));
+    /// ```
+    /// 
+    /// These errors both have the same root cause: the representation of sequences in KeyValues. 
+    /// In short, sequences are represented by repeating the parent element's key for each value
+    /// in the sequence.
     ///
     /// ```
     /// # use indoc::indoc;
-    /// # use vdflex::ser::to_string;
+    /// # use vdflex::ser::{to_string, kv_to_string};
     /// #[derive(serde::Serialize)]
     /// struct Data { nums: Vec<i32> }
     /// 
     /// let data = Data { nums: vec![1, 2, 3] };
-    /// println!("My data is:\n{}", to_string(&data).unwrap());
-    /// // My data is: 
-    /// // "nums" "1"
-    /// // "nums" "2"
-    /// // "nums" "3"
+    /// println!("{}", kv_to_string("Data", &data).unwrap());
+    /// // This prints the following: 
+    /// // Data
+    /// // {
+    /// //     "nums" "1"
+    /// //     "nums" "2"
+    /// //     "nums" "3"
+    /// // }
     /// # assert_eq!(
     /// #    to_string(&data).unwrap(),
     /// #    indoc! {r#"
@@ -88,32 +101,18 @@ pub enum Error {
     /// #        "nums" "3"
     /// #    "#},
     /// # );
+    /// 
+    /// let empty_data = Data { nums: vec![] };
+    /// println!("{}", kv_to_string("Data", &empty_data).unwrap());
+    /// // Data
+    /// // {
+    /// // }
+    /// # assert_eq!(to_string(&empty_data).unwrap(), "");
     /// ``` 
     /// 
-    /// This means that there is no sensible way to represent top-level sequences. This also means
-    /// that there is no way to represent [nested sequences](Error::NestedSequence).
-    #[error("tried to serialize a sequence directly (try wrapping it in an object)")]
-    RootLevelSequence,
-    
-    /// Indicates that a sequence containing another sequence was attempted to be serialized.
-    /// 
-    /// # Explanation
-    /// 
-    /// It is not possible to represent a sequence (such as a `Vec` or a tuple) that contains
-    /// another sequence, unless there is some level of indirection (e.g. a struct). For example, 
-    /// the following code fails:
-    /// 
-    /// ```should_panic
-    /// # use vdflex::ser::to_string;
-    /// let matrix = vec![vec![1, 0, 0], vec![0, 1, 0], vec![0, 0, 1]];
-    /// let vdf = to_string(&matrix).unwrap(); // panics
-    /// ```
-    /// 
-    /// This is because sequences are represented by repeating the parent element's key multiple
-    /// times. The inner sequence(s) have no keys and thus no possible representation. For more
-    /// information, see [Error::RootLevelSequence].
-    #[error("tried to serialize a nested sequence")]
-    NestedSequence,
+    /// As a result, sequences must be direct children of stuff with keys (e.g. maps and structs).
+    #[error("tried to serialize a sequence with no valid KeyValues representation")]
+    UnrepresentableSequence,
     
     /// Indicates that a non-finite floating-point number was attempted to be serialized.
     ///
