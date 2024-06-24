@@ -132,25 +132,25 @@ fn main() -> vdflex::Result<()> {
 ## Supported Types
 
 KeyValues is woefully underspecified, but in general it only supports strings and multimaps (objects). VDFLex attempts
-to support every Rust type, but not all types necessarily have an "idiomatic" or "useful" representation.
+to support every Rust type, but not all types necessarily have an "idiomatic" or "useful" representation. These are 
+the types that VDFlex supports and how they are represented in KeyValues:
 
-|--------------------------------|---------------------------------------------------------------------------------------------------------|
-| Type                           | Notes                                                                                                   |
-|--------------------------------|---------------------------------------------------------------------------------------------------------|
-| `bool`                         | Serialized to `1` or `0`                                                                                |
-| integers                       | KeyValues doesn't typically support `i128` or `u128`                                                    |
-| `f32`/`f64`                    | Some implementations only support `f32`. Non-finite floats are also poorly supported.                   |
-| `char`/`String`/`str`          |                                                                                                         |
-| `Option`                       | KeyValues has no equivalent of `null`, so `Some<T>` is represented as `T` and `None` is simply omitted  |
-| Unit/Unit Structs              | Serialized like `None`                                                                                  |
-| Unit Variants                  | Represented as a string matching the name of the variant                                                |
-| Newtype Structs                | Represented as the wrapped type                                                                         |
-| Newtype Variants               | Represented as an object mapping the variant name to the wrapped type                                   |
-| Sequences/Tuples/Tuple Structs | Represented by repeating the key for each element in the sequence                                       |
-| Tuple Variants                 | Represented by a map containing a sequence of the tuple's fields, using the variant name as the key     |
-| Maps/Structs                   | Represented by objects (a curly bracket-enclosed list of key-value pairs)                               |
-| Struct Variants                | Represented as an object mapping the variant name to the struct representation of its fields            |
-|--------------------------------|---------------------------------------------------------------------------------------------------------|
+
+|              Type              | Notes                                                                                                  |
+|:------------------------------:|:-------------------------------------------------------------------------------------------------------|
+|             `bool`             | Serialized to `1` or `0`                                                                               |
+|            integers            | KeyValues doesn't typically support `i128` or `u128`                                                   |
+|          `f32`/`f64`           | Some implementations only support `f32`. Non-finite floats are also poorly supported.                  |
+|     `char`/`String`/`str`      | -                                                                                                      |
+|            `Option`            | KeyValues has no equivalent of `null`, so `Some<T>` is represented as `T` and `None` is simply omitted |
+|       Unit/Unit Structs        | Serialized like `None`                                                                                 |
+|         Unit Variants          | Represented as a string matching the name of the variant                                               |
+|        Newtype Structs         | Represented as the wrapped type                                                                        |
+|        Newtype Variants        | Represented as an object mapping the variant name to the wrapped type                                  |
+| Sequences/Tuples/Tuple Structs | Represented by repeating the key for each element in the sequence                                      |
+|         Tuple Variants         | Represented by a map containing a sequence of the tuple's fields, using the variant name as the key    |
+|          Maps/Structs          | Represented by objects (a curly bracket-enclosed list of key-value pairs)                              |
+|        Struct Variants         | Represented as an object mapping the variant name to the struct representation of its fields           |
 
 ### Limitations
 
