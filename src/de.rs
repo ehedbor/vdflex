@@ -4,9 +4,7 @@
 #![allow(dead_code)]
 
 use crate::Result;
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
-use std::io::Read;
 
 /// Deserialize a KeyValues value representing some type `T`.
 ///
