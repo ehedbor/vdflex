@@ -1,4 +1,4 @@
-# VDFLex
+# VDFLex &emsp; [![Crates.io](https://img.shields.io/crates/v/vdflex)](https://crates.io/crates/vdflex) ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ehedbor/vdflex/build.yml?branch=master) [![Docs.rs](https://docs.rs/vdflex/badge.svg)](https://docs.rs/vdflex) [![GitHub](https://img.shields.io/github/license/ehedbor/vdflex)](https://github.com/ehedbor/vdflex/blob/master/LICENSE) 
 
 VDFLex is a (de)serialization library for parsing the Valve Data File format with 
 [serde](https://crates.io/crates/serde). VDF—or more generally, [KeyValues](https://developer.valvesoftware.com/wiki/KeyValues)—is 
@@ -7,32 +7,8 @@ a data format developed by Valve for use in Steam and the Source engine.
 ```text
 LightmappedGeneric
 {
-    $basetexture "water/water_still"
-    $surfaceprop water
-    $translucent 1
-    
-    %compilewater 1
-    %tooltexture "water/water_still_frame00"
-
-    $abovewater 1
-    $bottommaterial "water/water_still_beneath"
-    
-    $fogenable 1
-    $fogcolor "{5 5 51}"
-    $fogstart 0
-    $fogend 200
-    $lightmapwaterfog 1
-    $flashlighttint 1
-    
-    Proxies
-    {
-        AnimatedTexture
-        {
-            animatedTextureVar $basetexture
-            animatedTextureFrameNumVar $frame
-            animatedTextureFrameRate 10
-        }
-    }
+    $basetexture "myassets\gravel01"
+    $surfaceprop gravel
 }
 ```
 
