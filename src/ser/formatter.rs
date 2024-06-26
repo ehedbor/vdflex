@@ -148,7 +148,7 @@ impl PrettyFormatter {
         if elem == ElementKind::Object {
             self.indent_level -= 1;
         }
-        return elem;
+        elem
     }
 
     fn write_indent<W: ?Sized + Write>(&mut self, writer: &mut W) -> io::Result<()> {

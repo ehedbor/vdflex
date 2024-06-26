@@ -1,5 +1,8 @@
 //! Deserialize KeyValues text to Rust types.
 
+// TODO: impl de; remove
+#![allow(dead_code)]
+
 use crate::Result;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -62,7 +65,7 @@ mod tests {
         pub bar: String,
     }
 
-    const SIMPLE_KEYVALUES: &'static str = indoc! {r##"
+    const SIMPLE_KEYVALUES: &str = indoc! {r##"
         // This is a comment. It should not be parsed. This is verified by
         // adding some bizzare comments.
 
@@ -101,7 +104,7 @@ mod tests {
         assert_eq!(foo.bar, "baz");
     }
 
-    const ANIMALS: &'static str = indoc! {r##"
+    const ANIMALS: &str = indoc! {r##"
         "Cats" {
             "Cat" {
                 "Name" "Archie"

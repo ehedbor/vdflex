@@ -44,23 +44,23 @@ impl<W: Write, F: Formatter> Serializer<W, F> {
                 .and_then(|_| self.formatter.write_string(&mut self.writer, key))
                 .and_then(|_| self.formatter.end_key(&mut self.writer))
                 .and_then(|_| self.formatter.begin_value(&mut self.writer))
-                .map_err(|e| Error::Io(e))?;
+                .map_err(Error::Io)?;
         }
 
         self.formatter
             .begin_object(&mut self.writer)
-            .map_err(|e| Error::Io(e))
+            .map_err(Error::Io)
     }
 
     fn end_map(&mut self) -> Result<()> {
         self.formatter
             .end_object(&mut self.writer)
-            .map_err(|e| Error::Io(e))?;
+            .map_err(Error::Io)?;
 
         if !self.elements.is_empty() {
             self.formatter
                 .end_value(&mut self.writer)
-                .map_err(|e| Error::Io(e))?;
+                .map_err(Error::Io)?;
         }
 
         Ok(())
@@ -88,16 +88,16 @@ impl<W: Write, F: Formatter> Serializer<W, F> {
                 .and_then(|_| self.formatter.begin_value(&mut self.writer))
                 .and_then(|_| self.formatter.write_string(&mut self.writer, value))
                 .and_then(|_| self.formatter.end_value(&mut self.writer))
-                .map_err(|e| Error::Io(e))
+                .map_err(Error::Io)
         } else {
             // We're at the root level. Just write the plain string.
             self.formatter
                 .write_string(&mut self.writer, value)
-                .map_err(|e| Error::Io(e))
+                .map_err(Error::Io)
         }
     }
 
-    fn current_key<'a>(elements: &'a Vec<Option<Cow<'a, str>>>) -> Option<&'a str> {
+    fn current_key<'a>(elements: &'a [Option<Cow<'a, str>>]) -> Option<&'a str> {
         elements.last().map(|element| match element {
             Some(direct_key) => direct_key.as_ref(),
             None => elements
