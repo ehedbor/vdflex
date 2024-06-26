@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Evan Hedbor <evan@hedbor.org>"]
 description = "A (de)serializer for the Valve Data File (VDF, a.k.a. KeyValues) format using Serde"
 keywords = ["vdf", "keyvalues", "valve", "serialization", "serde"]
-categories = ["encoding", "parser-implementations", "no-std"]
+categories = ["encoding", "parser-implementations"]
 license = "MIT"
 repository = "https://github.com/ehedbor/vdflex"
 edition = "2021"
@@ -20,6 +20,6 @@ thiserror = "1.0.50"
 serde = { version = "1.0.189", features = ["derive"] }
 
 [features]
-default = ["std"]
+#default = ["std"]
 preserve_order = ["indexmap"]
-std = ["serde/std", "indexmap?/std"]
+#std = ["serde/std", "indexmap?/std"]
