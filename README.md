@@ -43,7 +43,7 @@ Add the following to your project's `Cargo.toml`:
 ```toml
 [dependencies]
 serde = { version = "1.0.0", features = ["derive"] }
-vdflex = "1.0.0"
+vdflex = "0.1.0"
 ```
 
 ## Feature Flags
