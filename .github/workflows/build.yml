@@ -2,11 +2,11 @@ name: Build
 on:
   push:
     branches:
-    - master
+      - master
   pull_request:
     branches:
-    - master
-  
+      - master
+
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-Dwarnings"
@@ -19,14 +19,14 @@ jobs:
       fail-fast: false
       matrix:
         os:
-        - ubuntu-latest
-        - windows-latest
+          - ubuntu-latest
+          - windows-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Run tests
-      run: cargo test
-    - name: Run tests (preserve_order)
-      run: cargo test --features preserve_order
+      - uses: actions/checkout@v4
+      - name: Run tests
+        run: cargo test
+      - name: Run tests (preserve_order)
+        run: cargo test --features preserve_order
 
   build:
     name: Build (${{matrix.os}})
@@ -35,37 +35,37 @@ jobs:
       fail-fast: false
       matrix:
         os:
-        - ubuntu-latest
-        - windows-latest
+          - ubuntu-latest
+          - windows-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Check
-      run: cargo check
-    - name: Check (preserve_order)
-      run: cargo check --features preserve_order
-#    - name: Check (no-std)
-#      run: cargo check --no-default-features
+      - uses: actions/checkout@v4
+      - name: Check
+        run: cargo check
+      - name: Check (preserve_order)
+        run: cargo check --features preserve_order
+#      - name: Check (no-std)
+#        run: cargo check --no-default-features
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Run Clippy
-      run: cargo clippy --all-targets
+      - uses: actions/checkout@v4
+      - name: Run Clippy
+        run: cargo clippy --all-targets
 
   format:
     name: Check formatting
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Run rustfmt
-      run: cargo fmt -- --check
-      
+      - uses: actions/checkout@v4
+      - name: Run rustfmt
+        run: cargo fmt -- --check
+
   docs:
     name: Check documentation
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Run cargo doc
-      run: cargo doc --no-deps --workspace
+      - uses: actions/checkout@v4
+      - name: Run cargo doc
+        run: cargo doc --no-deps --workspace
