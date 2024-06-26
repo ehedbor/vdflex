@@ -23,7 +23,7 @@ jobs:
     steps:
     - name: Run tests
       run: cargo test
-    - name: Run tests (preserve-order)
+    - name: Run tests (preserve_order)
       run: cargo test --features preserve_order
 
   build:
@@ -38,7 +38,7 @@ jobs:
     - uses: actions/checkout@v4
     - name: Check
       run: cargo check
-    - name: Check (preserve-order)
+    - name: Check (preserve_order)
       run: cargo check --features preserve_order
     - name: Check (no-std)
       run: cargo check --no-default-features
