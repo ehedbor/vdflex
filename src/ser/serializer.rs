@@ -32,11 +32,11 @@ impl<W: Write, F: Formatter> Serializer<W, F> {
             _ => Err(Error::UnrepresentableSequence),
         }
     }
-    
+
     fn end_seq(&mut self) -> Result<()> {
         Ok(())
     }
-    
+
     fn begin_map(&mut self) -> Result<()> {
         if let Some(key) = Self::current_key(&self.elements) {
             self.formatter
@@ -56,13 +56,13 @@ impl<W: Write, F: Formatter> Serializer<W, F> {
         self.formatter
             .end_object(&mut self.writer)
             .map_err(|e| Error::Io(e))?;
-            
+
         if !self.elements.is_empty() {
             self.formatter
                 .end_value(&mut self.writer)
                 .map_err(|e| Error::Io(e))?;
         }
-        
+
         Ok(())
     }
 
@@ -96,7 +96,7 @@ impl<W: Write, F: Formatter> Serializer<W, F> {
                 .map_err(|e| Error::Io(e))
         }
     }
-    
+
     fn current_key<'a>(elements: &'a Vec<Option<Cow<'a, str>>>) -> Option<&'a str> {
         elements.last().map(|element| match element {
             Some(direct_key) => direct_key.as_ref(),
@@ -141,7 +141,7 @@ impl<'a, W: Write, F: Formatter> serde::Serializer for &'a mut Serializer<W, F> 
     }
 
     serialize_as_str_impl!(i8, i16, i32, i64, i128, u8, u16, u32, u64, u128, f32, f64, char);
-    
+
     fn serialize_str(self, v: &str) -> Result<Self::Ok> {
         self.string_value(v)
     }
@@ -155,7 +155,7 @@ impl<'a, W: Write, F: Formatter> serde::Serializer for &'a mut Serializer<W, F> 
         if self.elements.is_empty() {
             self.string_value("")?;
         }
-        
+
         Ok(())
     }
 

@@ -25,7 +25,7 @@ pub trait Formatter {
     /// Writes a string value.
     fn write_string<W: ?Sized + Write>(&mut self, writer: &mut W, s: &str) -> io::Result<()>;
 
-    /// Writes a conditional tag. Must be called after `write_key` and before `write_string` and 
+    /// Writes a conditional tag. Must be called after `write_key` and before `write_string` and
     /// `end_key`.
     fn write_conditional<W: ?Sized + Write>(
         &mut self,

@@ -12,13 +12,13 @@ pub enum Error {
     /// Indicates that an IO error occurred while (de)serializing.
     #[error("unexpected io error")]
     Io(io::Error),
-    
+
     /// Indicates that the given type is not supported.
-    /// 
+    ///
     /// # Explanation
-    /// 
-    /// Not all Rust types have a suitable KeyValues equivalent. Some types that can't be 
-    /// represented are: 
+    ///
+    /// Not all Rust types have a suitable KeyValues equivalent. Some types that can't be
+    /// represented are:
     ///
     /// - `[u8]` (raw bytes) - KeyValues cannot save binary data.
     #[error("type `{0}` is not supported")]
@@ -26,9 +26,9 @@ pub enum Error {
 
     /// Indicates that multiple root-level keys were discovered, but the deserialization function
     /// used does not permit this.
-    /// 
+    ///
     /// # Explanation
-    /// 
+    ///
     /// Traditional KeyValues implementations require that all data is stored in a root-level
     /// object with exactly one key. This library also assumes this to be the case. However,
     /// certain KeyValue-like formats DO permit the root object to have multiple keys—namely,
@@ -38,19 +38,19 @@ pub enum Error {
     /// Key-value functions like [`crate::kv_to_string`] and `crate::kv_from_string`
     /// operate on a single key-value pair. They are mainly intended for serializing and
     /// deserializing KeyValues files.
-    /// 
+    ///
     /// Value functions like [`crate::to_string`] and `crate::from_string` handle values
     /// directly, with no enclosing object. These functions can handle multiple root level keys,
     /// as well as incomplete files.
-    /// 
+    ///
     /// This error occurs when attempting to deserialize a file that contains multiple root-level
-    /// keys with a value function. When this happens, either the file was malformed or you should 
-    /// have used a value function. 
+    /// keys with a value function. When this happens, either the file was malformed or you should
+    /// have used a value function.
     #[error("tried to deserialize multiple root keys (try `from_str` or `from_reader`)")]
     MultipleRootKeys,
-    
+
     /// Indicates that an unrepresentable sequence was serialized.
-    /// 
+    ///
     /// # Explanation
     ///
     /// There are two cases in which sequences cannot be serialized. The first occurs when a
@@ -83,7 +83,7 @@ pub enum Error {
     /// # use vdflex::ser::{to_string, kv_to_string};
     /// #[derive(serde::Serialize)]
     /// struct Data { nums: Vec<i32> }
-    /// 
+    ///
     /// let data = Data { nums: vec![1, 2, 3] };
     /// println!("{}", kv_to_string("Data", &data).unwrap());
     /// // This prints the following:
@@ -109,7 +109,7 @@ pub enum Error {
     /// // }
     /// # assert_eq!(to_string(&empty_data).unwrap(), "");
     /// ```
-    /// 
+    ///
     /// As a result, sequences must be direct children of stuff with keys (e.g. maps and structs).
     #[error("tried to serialize a sequence with no valid KeyValues representation")]
     UnrepresentableSequence,

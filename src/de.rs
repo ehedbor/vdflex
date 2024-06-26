@@ -1,5 +1,5 @@
 //! Deserialize KeyValues text to Rust types.
- 
+
 use crate::Result;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;

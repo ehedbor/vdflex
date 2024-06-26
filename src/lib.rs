@@ -107,8 +107,8 @@ pub struct KeyValues {
 }
 
 impl KeyValues {
-    /// Creates a KeyValues from a single key-value pair. This is the typical way to create 
-    /// KeyValues document. 
+    /// Creates a KeyValues from a single key-value pair. This is the typical way to create
+    /// KeyValues document.
     pub fn new(key: String, value: Value) -> Self {
         let mut root = Object::new();
         root.insert(key, vec![value]);
