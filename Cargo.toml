@@ -20,6 +20,5 @@ thiserror = "1.0.50"
 serde = { version = "1.0.189", features = ["derive"] }
 
 [features]
-#default = ["std"]
+default = []
 preserve_order = ["indexmap"]
-#std = ["serde/std", "indexmap?/std"]
