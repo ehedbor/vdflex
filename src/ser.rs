@@ -131,6 +131,7 @@ pub fn kv_to_writer_pretty<W: Write, T: ?Sized + Serialize, F: Formatter>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "preserve_order")]
     use crate::{KeyValues, Object, Value};
     use indoc::indoc;
 
