@@ -48,8 +48,7 @@ vdflex = "0.1.0"
 
 ## Feature Flags
 
-- `default`: `["std"]`
-- `no_std`: Don't use the standard library
+- `default`: No features
 - `preserve_order`: Preserve entry insertion order 
 
 ## Quick Start

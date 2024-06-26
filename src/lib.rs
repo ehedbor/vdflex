@@ -1,10 +1,8 @@
 #![doc = include_str!("../README.md")]
-#![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
 
 mod de;
 pub mod error;
-#[cfg(feature = "std")]
 pub mod ser;
 
 pub use error::{Error, Result};
@@ -25,7 +23,6 @@ pub enum Value {
     Object(Object),
 }
 
-#[cfg(feature = "std")]
 impl serde::Serialize for Value {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> result::Result<S::Ok, S::Error> {
         match self {
@@ -107,8 +104,8 @@ pub struct KeyValues {
 }
 
 impl KeyValues {
-    /// Creates a KeyValues from a single key-value pair. This is the typical way to create 
-    /// KeyValues document. 
+    /// Creates a KeyValues from a single key-value pair. This is the typical way to create
+    /// KeyValues document.
     pub fn new(key: String, value: Value) -> Self {
         let mut root = Object::new();
         root.insert(key, vec![value]);
@@ -121,7 +118,6 @@ impl KeyValues {
     }
 }
 
-#[cfg(feature = "std")]
 impl serde::Serialize for KeyValues {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> result::Result<S::Ok, S::Error> {
         self.root.serialize(serializer)

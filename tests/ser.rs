@@ -6,7 +6,9 @@ use vdflex::ser::{
     kv_to_string, kv_to_string_pretty, to_string, to_string_pretty, BraceStyle, FormatOpts,
     PrettyFormatter, Quoting,
 };
-use vdflex::{Error, KeyValues, Object, Result, Value};
+use vdflex::{Error, Result};
+#[cfg(feature = "preserve_order")]
+use vdflex::{KeyValues, Object, Value};
 
 #[derive(Serialize)]
 struct UnitStruct;
@@ -25,6 +27,7 @@ struct Struct {
     b: bool,
 }
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Serialize)]
 enum Enum {
     UnitVariant,
@@ -487,7 +490,7 @@ fn serialize_key_values() -> Result<()> {
         String::from("AnimatedTexture"),
         vec![Value::Object(animated_texture)],
     );
-    
+
     properties.insert(String::from("Proxies"), vec![Value::Object(proxies)]);
 
     let vmt = KeyValues::new(

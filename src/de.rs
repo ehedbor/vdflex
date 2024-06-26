@@ -1,5 +1,8 @@
 //! Deserialize KeyValues text to Rust types.
- 
+
+// TODO: impl de; remove
+#![allow(dead_code)]
+
 use crate::Result;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -32,7 +35,6 @@ pub fn kv_from_str<'a, T: Deserialize<'a>>(_s: &'a str) -> Result<(String, T)> {
 ///
 /// Deserialization can fail if the input is not valid KeyValues or does not match the structure
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
-#[cfg(feature = "std")]
 pub fn from_reader<R: Read, T: DeserializeOwned>(_reader: R) -> Result<T> {
     unimplemented!()
 }
@@ -45,7 +47,6 @@ pub fn from_reader<R: Read, T: DeserializeOwned>(_reader: R) -> Result<T> {
 ///
 /// Deserialization can fail if the input is not valid KeyValues or does not match the structure
 /// expected by `T`. It can also fail if `T`'s implementation of `Deserialize` decides to fail.
-#[cfg(feature = "std")]
 pub fn kv_from_reader<R: Read, T: DeserializeOwned>(_reader: R) -> Result<(String, T)> {
     unimplemented!()
 }
@@ -62,7 +63,7 @@ mod tests {
         pub bar: String,
     }
 
-    const SIMPLE_KEYVALUES: &'static str = indoc! {r##"
+    const SIMPLE_KEYVALUES: &str = indoc! {r##"
         // This is a comment. It should not be parsed. This is verified by
         // adding some bizzare comments.
 
@@ -101,7 +102,7 @@ mod tests {
         assert_eq!(foo.bar, "baz");
     }
 
-    const ANIMALS: &'static str = indoc! {r##"
+    const ANIMALS: &str = indoc! {r##"
         "Cats" {
             "Cat" {
                 "Name" "Archie"
