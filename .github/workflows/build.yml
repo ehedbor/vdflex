@@ -1,0 +1,68 @@
+name: Build
+on:
+  push:
+    branches:
+    - master
+  pull_request:
+    branches:
+    - master
+  
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  test:
+    name: Tests (${{matrix.os}})
+    runs-on: ${{matrix.os}
+    strategy:
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+    steps:
+    - name: Run tests
+      run: cargo test
+    - name: Run tests (preserve-order)
+      run: cargo test --features preserve-order
+
+  build:
+    name: Build (${{matrix.os}})
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        os:
+        - ubuntu-latest
+        - windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check
+      run: cargo check
+    - name: Check (preserve-order)
+      run: cargo check --features preserve-order
+    - name: Check (no-std)
+      run: cargo check --no-default-features
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run Clippy
+      run: cargo clippy --all-targets
+
+  format:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run rustfmt
+      run: cargo fmt -- --check
+      
+  docs:
+    name: Check documentation
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run cargo doc
+      run: cargo doc --no-deps --workspace
