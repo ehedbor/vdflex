@@ -1,6 +1,6 @@
 [package]
 name = "vdflex"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Evan Hedbor <evan@hedbor.org>"]
 description = "A (de)serializer for the Valve Data File (VDF, a.k.a. KeyValues) format using Serde"
 keywords = ["vdf", "keyvalues", "valve", "serialization", "serde"]
