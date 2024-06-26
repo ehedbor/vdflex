@@ -22,6 +22,7 @@ jobs:
         - ubuntu-latest
         - windows-latest
     steps:
+    - uses: actions/checkout@v4
     - name: Run tests
       run: cargo test
     - name: Run tests (preserve_order)
