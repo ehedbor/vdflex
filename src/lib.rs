@@ -23,7 +23,6 @@ pub enum Value {
     Object(Object),
 }
 
-#[cfg(feature = "std")]
 impl serde::Serialize for Value {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> result::Result<S::Ok, S::Error> {
         match self {
@@ -119,7 +118,6 @@ impl KeyValues {
     }
 }
 
-#[cfg(feature = "std")]
 impl serde::Serialize for KeyValues {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> result::Result<S::Ok, S::Error> {
         self.root.serialize(serializer)
