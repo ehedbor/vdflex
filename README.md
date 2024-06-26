@@ -109,22 +109,23 @@ fn main() -> vdflex::Result<()> {
     // "AppBuild"
     // {
     //     "AppID" "1234"
-    //     "Desc" "My SteamPipe build script"
-    //     "ContentRoot" "..\assets\"
     //     "BuildOutput" "..\build\"
+    //     "ContentRoot" "..\assets\"
     //     "Depots"
+    //     "Desc" "My SteamPipe build script"
     //     {
     //         "1234"
     //         {
     //             "FileMapping"
     //             {
-    //                 "LocalPath" "*"
     //                 "DepotPath" "."
+    //                 "LocalPath" "*"
     //             }
     //         }
     //     }
     // }
-    
+  
+
     Ok(())
 }
 ```
