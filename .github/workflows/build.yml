@@ -24,7 +24,7 @@ jobs:
     - name: Run tests
       run: cargo test
     - name: Run tests (preserve-order)
-      run: cargo test --features preserve-order
+      run: cargo test --features preserve_order
 
   build:
     name: Build (${{matrix.os}})
@@ -39,7 +39,7 @@ jobs:
     - name: Check
       run: cargo check
     - name: Check (preserve-order)
-      run: cargo check --features preserve-order
+      run: cargo check --features preserve_order
     - name: Check (no-std)
       run: cargo check --no-default-features
 
