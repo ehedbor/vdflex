@@ -487,7 +487,7 @@ fn serialize_key_values() -> Result<()> {
         String::from("AnimatedTexture"),
         vec![Value::Object(animated_texture)],
     );
-    
+
     properties.insert(String::from("Proxies"), vec![Value::Object(proxies)]);
 
     let vmt = KeyValues::new(
